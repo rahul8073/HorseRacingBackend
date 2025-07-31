@@ -14,7 +14,7 @@ const server=http.createServer(app);
 
 
 //connect to mongodb
-mongoose.connect(process.env.mongodb_url, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.mongodb_url)
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('MongoDB connection error:', err)); 
 
