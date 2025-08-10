@@ -4,12 +4,16 @@ const cors=require('cors');
 const http=require('http');
 const mongoose=require('mongoose');
 const Authrouter = require('./Routes/authRoute');
+const HorseBetRoute = require('./Routes/HorseBetRoute');
+const Horses = require('./Routes/Horses');
 const app=express();
 
 app.use(express.json());
 app.use(cors())
 //routes
 app.use('/',Authrouter)
+app.use('/',HorseBetRoute)
+app.use('/',Horses)
 const server=http.createServer(app);
 
 
