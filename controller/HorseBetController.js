@@ -134,22 +134,25 @@ exports.BetHistory = async (req, res) => {
     }
 };
 
+
 exports.DecideRaceResult = async (req, res) => {
     try {
         // 1. Get all horses
         const allHorses = await Horses.find();
 
-        // 2. Get all bets
-        const allBets = await HorseBet.find().populate('horseId', 'ID horseName');
+        // 2. Get all bets with horse + user info
+        const allBets = await HorseBet.find()
+            .populate('horseId', 'ID horseName')
+            .populate('userId', 'name'); // assuming your User model has "name"
 
         // 3. Group bets by horseId
         const grouped = {};
-        allHorses.forEach(horse => {
-            grouped[horse._id.toString()] = {
-                totalAmount: 0,
-                horseName: horse.horseName
-            };
-        });
+        // allHorses.forEach(horse => {
+        //     grouped[horse._id.toString()] = {
+        //         totalAmount: 0,
+        //         horseName: horse.horseName
+        //     };
+        // });
 
         allBets.forEach(bet => {
             const id = bet.horseId._id.toString();
@@ -168,9 +171,17 @@ exports.DecideRaceResult = async (req, res) => {
 
         const winningHorseName = grouped[winningHorseId].horseName;
 
-        // 5. Prepare bet history entries
+        // 5. Get winning users (from bets that match winningHorseId)
+        const winningUsers = allBets
+            .filter(bet => bet.horseId._id.toString() === winningHorseId)
+            .map(bet => ({
+                userId: bet.userId._id,
+                name: bet.userId.name
+            }));
+
+        // 6. Prepare bet history entries
         const historyData = allBets.map(bet => ({
-            userId: bet.userId,
+            userId: bet.userId._id,
             horseId: bet.horseId._id,
             horseName: bet.horseId.horseName,
             Amount: bet.Amount,
@@ -178,7 +189,6 @@ exports.DecideRaceResult = async (req, res) => {
             raceDate: new Date()
         }));
 
-        // 6. Save to BetHistory
         if (historyData.length > 0) {
             await BetHistory.insertMany(historyData);
         }
@@ -191,7 +201,8 @@ exports.DecideRaceResult = async (req, res) => {
             winner: {
                 horseId: winningHorseId,
                 horseName: winningHorseName,
-                totalAmount: minAmount
+                totalAmount: minAmount,
+                users: winningUsers
             }
         });
 
@@ -200,4 +211,3 @@ exports.DecideRaceResult = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-
