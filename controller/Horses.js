@@ -3,28 +3,45 @@ const Horses = require('../Models/Horses');
 // Create new horse
 exports.CreateHorse = async (req, res) => {
     try {
-        const { ID, horseName } = req.body;
+        let horsesData = req.body;
 
-        if (!ID || !horseName) {
-            return res.status(400).json({ message: "ID and horseName are required" });
+        // If it's a single object, wrap it in an array
+        if (!Array.isArray(horsesData)) {
+            horsesData = [horsesData];
         }
 
-        // Check if horse with same ID already exists
-        const existingHorse = await Horses.findOne({ ID });
-        if (existingHorse) {
-            return res.status(400).json({ message: "Horse with this ID already exists" });
+        // Validation: check all entries have ID and horseName
+        for (const horse of horsesData) {
+            if (!horse.ID || !horse.horseName) {
+                return res.status(400).json({ message: "Each horse must have ID and horseName" });
+            }
         }
 
-        const newHorse = new Horses({ ID, horseName });
-        await newHorse.save();
+        // Check for duplicate IDs in DB
+        const ids = horsesData.map(h => h.ID);
+        const existingHorses = await Horses.find({ ID: { $in: ids } });
+        if (existingHorses.length > 0) {
+            const existingIDs = existingHorses.map(h => h.ID);
+            return res.status(400).json({ 
+                message: "Some IDs already exist", 
+                existingIDs 
+            });
+        }
 
-        res.status(201).json({ message: "Horse created successfully", horse: newHorse });
+        // Insert horses
+        const newHorses = await Horses.insertMany(horsesData);
+
+        res.status(201).json({ 
+            message: "Horses created successfully", 
+            horses: newHorses 
+        });
 
     } catch (error) {
-        console.error("Error creating horse:", error);
+        console.error("Error creating horses:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 // Get all horses
 exports.GetAllHorses = async (req, res) => {
