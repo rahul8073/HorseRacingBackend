@@ -139,7 +139,9 @@ exports.DecideRaceResult = async (req, res) => {
     const allBets = await HorseBet.find()
       .populate("horseId", "ID horseName")
       .populate("userId", "name"); // assuming your User model has "name"
-
+    if (!allBets.length) {
+      return res.status(400).json({ message: "No bets placed for this race" });
+    }
     // 3. Group bets by horseId
     const grouped = {};
     // allHorses.forEach(horse => {
