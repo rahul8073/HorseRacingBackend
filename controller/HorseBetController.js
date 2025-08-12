@@ -6,9 +6,12 @@ const Horses = require("../Models/Horses");
 exports.CreateHorseBet = async (req, res) => {
   try {
     const { horseID, Amount } = req.body;
-    const userId = req.user._id;
+    const userId = req.user?._id;
+    if(!userId ){
+      return res.status(401).json({ message: "Unauthorized: User not logged in" });
+    }
 
-    if (!userId || !horseID || Amount == null) {
+    if (!horseID || Amount == null) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -45,7 +48,9 @@ exports.CreateHorseBet = async (req, res) => {
 exports.GetHorseBets = async (req, res) => {
   try {
     const userId = req.user._id;
-
+ if(!userId ){
+      return res.status(401).json({ message: "Unauthorized: User not logged in" });
+    }
     const bets = await HorseBet.find({ userId })
       .populate("horseId", "ID horseName") // fetch horse info
       .select("horseId Amount betTime status");
@@ -109,8 +114,10 @@ exports.GetHorseTotalBet = async (req, res) => {
 // Get bet history for logged-in user
 exports.BetHistory = async (req, res) => {
   try {
-    const userId = req.user._id;
-    console.log(userId);
+    const userId = req.user?._id;
+    if(!userId ){
+      return res.status(401).json({ message: "Unauthorized: User not logged in" });
+    }
     const bets = await BetHistory.find({ userId })
       .populate("userId", "name email")
       .populate("horseId", "ID horseName")
@@ -130,27 +137,106 @@ exports.BetHistory = async (req, res) => {
   }
 };
 
+// exports.DecideRaceResult = async (req, res) => {
+//   try {
+//     // 1. Get all horses
+//     const allHorses = await Horses.find();
+
+//     // 2. Get all bets with horse + user info
+//     const allBets = await HorseBet.find()
+//       .populate("horseId", "ID horseName")
+//       .populate("userId", "name"); // assuming your User model has "name"
+//     if (!allBets.length) {
+//       return res.status(400).json({ message: "No bets placed for this race" });
+//     }
+//     // 3. Group bets by horseId
+//     const grouped = {};
+//     // allHorses.forEach(horse => {
+//     //     grouped[horse._id.toString()] = {
+//     //         totalAmount: 0,
+//     //         horseName: horse.horseName
+//     //     };
+//     // });
+
+//     allBets.forEach((bet) => {
+//       const id = bet.horseId._id.toString();
+//       if (!grouped[id]) {
+//         grouped[id] = { totalAmount: 0, horseName: bet.horseId.horseName };
+//       }
+//       grouped[id].totalAmount += bet.Amount;
+//     });
+
+//     // allBets.forEach(bet => {
+//     //     const id = bet.horseId._id.toString();
+//     //     grouped[id].totalAmount += bet.Amount;
+//     // });
+
+//     // 4. Find horse with smallest total bet (including zero)
+//     let winningHorseId = null;
+//     let minAmount = Infinity;
+//     for (let horseId in grouped) {
+//       if (grouped[horseId].totalAmount < minAmount) {
+//         minAmount = grouped[horseId].totalAmount;
+//         winningHorseId = horseId;
+//       }
+//     }
+
+//     const winningHorseName = grouped[winningHorseId].horseName;
+
+//     // 5. Get winning users (from bets that match winningHorseId)
+//     const winningUsers = allBets
+//       .filter((bet) => bet.horseId._id.toString() === winningHorseId)
+//       .map((bet) => ({
+//         userId: bet.userId._id,
+//         name: bet.userId.name,
+//       }));
+
+//     // 6. Prepare bet history entries
+//     const historyData = allBets.map((bet) => ({
+//       userId: bet.userId._id,
+//       horseId: bet.horseId._id,
+//       horseName: bet.horseId.horseName,
+//       Amount: bet.Amount,
+//       status: bet.horseId._id.toString() === winningHorseId ? "won" : "lost",
+//       raceDate: new Date(),
+//     }));
+
+//     if (historyData.length > 0) {
+//       await BetHistory.insertMany(historyData);
+//     }
+
+//     // 7. Clear bets
+//     await HorseBet.deleteMany({});
+
+//     res.status(200).json({
+//       message: "Race result decided successfully",
+//       winner: {
+//         horseId: winningHorseId,
+//         horseName: winningHorseName,
+//         totalAmount: minAmount,
+//         users: winningUsers,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error deciding race result:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 exports.DecideRaceResult = async (req, res) => {
   try {
-    // 1. Get all horses
-    const allHorses = await Horses.find();
 
     // 2. Get all bets with horse + user info
     const allBets = await HorseBet.find()
       .populate("horseId", "ID horseName")
-      .populate("userId", "name"); // assuming your User model has "name"
+      .populate("userId", "name");
+
     if (!allBets.length) {
       return res.status(400).json({ message: "No bets placed for this race" });
     }
+
     // 3. Group bets by horseId
     const grouped = {};
-    // allHorses.forEach(horse => {
-    //     grouped[horse._id.toString()] = {
-    //         totalAmount: 0,
-    //         horseName: horse.horseName
-    //     };
-    // });
-
     allBets.forEach((bet) => {
       const id = bet.horseId._id.toString();
       if (!grouped[id]) {
@@ -159,12 +245,7 @@ exports.DecideRaceResult = async (req, res) => {
       grouped[id].totalAmount += bet.Amount;
     });
 
-    // allBets.forEach(bet => {
-    //     const id = bet.horseId._id.toString();
-    //     grouped[id].totalAmount += bet.Amount;
-    // });
-
-    // 4. Find horse with smallest total bet (including zero)
+    // 4. Find horse with smallest total bet
     let winningHorseId = null;
     let minAmount = Infinity;
     for (let horseId in grouped) {
@@ -176,20 +257,24 @@ exports.DecideRaceResult = async (req, res) => {
 
     const winningHorseName = grouped[winningHorseId].horseName;
 
-    // 5. Get winning users (from bets that match winningHorseId)
+    // 5. Get winning users (and calculate payout = bet × 10)
     const winningUsers = allBets
       .filter((bet) => bet.horseId._id.toString() === winningHorseId)
       .map((bet) => ({
         userId: bet.userId._id,
         name: bet.userId.name,
+        betAmount: bet.Amount,
+        winningAmount: bet.Amount * 10, // 10x payout
       }));
 
-    // 6. Prepare bet history entries
+    // 6. Prepare bet history with winnings
     const historyData = allBets.map((bet) => ({
       userId: bet.userId._id,
       horseId: bet.horseId._id,
       horseName: bet.horseId.horseName,
       Amount: bet.Amount,
+      winningAmount:
+        bet.horseId._id.toString() === winningHorseId ? bet.Amount * 10 : 0,
       status: bet.horseId._id.toString() === winningHorseId ? "won" : "lost",
       raceDate: new Date(),
     }));
