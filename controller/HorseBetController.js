@@ -349,7 +349,7 @@ exports.DecideRaceResult = async (req, res) => {
         userId: bet.userId._id,
         horseId: bet.horseId._id,
         horseName: bet.horseId.horseName,
-        Amount: bet.Amount,
+        betAmount: bet.Amount,
         winningAmount:
           bet.horseId._id.toString() === winningHorseId ? bet.Amount * 10 : 0,
         status:
