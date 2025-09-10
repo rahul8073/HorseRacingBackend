@@ -322,7 +322,7 @@ exports.DecideRaceResult = async (req, res) => {
     let winningUsers = [];
 
     if (allBets.length > 0) {
-      // Case: Bets exist → pick horse with smallest total bet
+      // ✅ Case: Bets exist → pick horse with smallest total bet
       for (let horseId in grouped) {
         if (grouped[horseId].totalAmount < minAmount) {
           minAmount = grouped[horseId].totalAmount;
@@ -332,37 +332,19 @@ exports.DecideRaceResult = async (req, res) => {
 
       winningHorseName = grouped[winningHorseId].horseName;
 
-      // Get users who bet on that horse
+      // Find winning users
       const usersWhoBet = allBets.filter(
         (bet) => bet.horseId._id.toString() === winningHorseId
       );
 
-      if (usersWhoBet.length > 0) {
-        winningUsers = usersWhoBet.map((bet) => ({
-          userId: bet.userId._id,
-          name: bet.userId.name,
-          betAmount: bet.Amount,
-          winningAmount: bet.Amount * 10, // payout rule
-        }));
-      } else {
-        //  No bets on winning horse → still declare winner, payout 0
-        winningUsers = [];
-      }
-    } else {
-      // Case: No bets at all → pick random horse, payout 0
-      const allHorses = await Horse.find({}, "horseName"); // need horses list
-      if (allHorses.length > 0) {
-        const randomHorse =
-          allHorses[Math.floor(Math.random() * allHorses.length)];
-        winningHorseId = randomHorse._id.toString();
-        winningHorseName = randomHorse.horseName;
-        minAmount = 0;
-        winningUsers = []; // no payouts
-      }
-    }
+      winningUsers = usersWhoBet.map((bet) => ({
+        userId: bet.userId._id,
+        name: bet.userId.name,
+        betAmount: bet.Amount,
+        winningAmount: bet.Amount * 10, // 10x payout
+      }));
 
-    // 3. Prepare bet history (only if bets exist)
-    if (allBets.length > 0) {
+      // Save history only if bets exist
       const historyData = allBets.map((bet) => ({
         userId: bet.userId._id,
         horseId: bet.horseId._id,
@@ -379,11 +361,29 @@ exports.DecideRaceResult = async (req, res) => {
         await BetHistory.insertMany(historyData);
       }
 
-      // Clear bets after race
       await HorseBet.deleteMany({});
+    } else {
+      // ⚠️ Case: No bets at all → pick random horse
+      const allHorses = await Horses.find({}, "horseName");
+      if (allHorses.length > 0) {
+        const randomHorse =
+          allHorses[Math.floor(Math.random() * allHorses.length)];
+        winningHorseId = randomHorse._id.toString();
+        winningHorseName = randomHorse.horseName;
+        minAmount = 0;
+        winningUsers = []; // no one placed bets
+
+        // 👇 Ensure consistent output
+        winningUsers.push({
+          userId: null,
+          name: null,
+          betAmount: 0,
+          winningAmount: 0,
+        });
+      }
     }
 
-    // 4. Respond with race result
+    // 3. Respond with race result
     res.status(200).json({
       message: "Race result decided successfully",
       winner: {
@@ -398,4 +398,5 @@ exports.DecideRaceResult = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
