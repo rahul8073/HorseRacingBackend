@@ -298,7 +298,7 @@ exports.DecideRaceResult = async (req, res) => {
         if (zeroBetHorses.length > 0) {
           const randomHorse =
             zeroBetHorses[Math.floor(Math.random() * zeroBetHorses.length)];
-          winningHorseId = randomHorse._id.toString();
+          winningHorseId = randomHorse.ID.toString();
           winningHorseName = randomHorse.horseName;
           minAmount = 0;
           winningUsers = []; // nobody wins since no bets
@@ -308,7 +308,7 @@ exports.DecideRaceResult = async (req, res) => {
       // Save bet history
       const historyData = allBets.map((bet) => ({
         userId: bet.userId._id,
-        horseId: bet.horseId._id,
+        horseId: bet.horseId.ID,
         horseName: bet.horseId.horseName,
         betAmount: bet.Amount,
         winningAmount:
@@ -328,7 +328,7 @@ exports.DecideRaceResult = async (req, res) => {
       if (allHorses.length > 0) {
         const randomHorse =
           allHorses[Math.floor(Math.random() * allHorses.length)];
-        winningHorseId = randomHorse._id.toString();
+        winningHorseId = randomHorse.ID.toString();
         winningHorseName = randomHorse.horseName;
         minAmount = 0;
         winningUsers = [];
