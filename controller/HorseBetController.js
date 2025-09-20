@@ -244,13 +244,14 @@ exports.DecideRaceResult = async (req, res) => {
   try {
     // 1. Get all bets with horse + user info
     const allBets = await HorseBet.find()
-      .populate("horseId", "ID horseName")
-      .populate("userId", "name");
+      .populate("horseId", "_id ID horseName") // ✅ include both _id and ID
+      .populate("userId", "_id name");
 
-    const allHorses = await Horses.find({}, "horseName");
+    const allHorses = await Horses.find({}, "_id ID horseName");
     const totalHorses = allHorses.length;
 
     let winningHorseId = null;
+    let winningHorseCustomId = null;
     let winningHorseName = null;
     let minAmount = Infinity;
     let winningUsers = [];
@@ -261,7 +262,11 @@ exports.DecideRaceResult = async (req, res) => {
       allBets.forEach((bet) => {
         const id = bet.horseId._id.toString();
         if (!grouped[id]) {
-          grouped[id] = { totalAmount: 0, horseName: bet.horseId.horseName };
+          grouped[id] = { 
+            totalAmount: 0, 
+            horseName: bet.horseId.horseName,
+            horseCustomId: bet.horseId.ID, // ✅ keep custom ID
+          };
         }
         grouped[id].totalAmount += bet.Amount;
       });
@@ -273,7 +278,8 @@ exports.DecideRaceResult = async (req, res) => {
         for (let horseId in grouped) {
           if (grouped[horseId].totalAmount < minAmount) {
             minAmount = grouped[horseId].totalAmount;
-            winningHorseId = horseId;
+            winningHorseId = horseId; // _id
+            winningHorseCustomId = grouped[horseId].horseCustomId; // ID
             winningHorseName = grouped[horseId].horseName;
           }
         }
@@ -298,17 +304,19 @@ exports.DecideRaceResult = async (req, res) => {
         if (zeroBetHorses.length > 0) {
           const randomHorse =
             zeroBetHorses[Math.floor(Math.random() * zeroBetHorses.length)];
-          winningHorseId = randomHorse.ID.toString();
+          winningHorseId = randomHorse._id.toString();
+          winningHorseCustomId = randomHorse.ID; // ✅ include custom ID
           winningHorseName = randomHorse.horseName;
           minAmount = 0;
-          winningUsers = []; // nobody wins since no bets
+          winningUsers = [];
         }
       }
 
       // Save bet history
       const historyData = allBets.map((bet) => ({
         userId: bet.userId._id,
-        horseId: bet.horseId.ID,
+        horseId: bet.horseId._id, // ✅ MongoDB ObjectId
+        horseCustomId: bet.horseId.ID, // ✅ custom ID
         horseName: bet.horseId.horseName,
         betAmount: bet.Amount,
         winningAmount:
@@ -328,7 +336,8 @@ exports.DecideRaceResult = async (req, res) => {
       if (allHorses.length > 0) {
         const randomHorse =
           allHorses[Math.floor(Math.random() * allHorses.length)];
-        winningHorseId = randomHorse.ID.toString();
+        winningHorseId = randomHorse._id.toString();
+        winningHorseCustomId = randomHorse.ID; // ✅ include custom ID
         winningHorseName = randomHorse.horseName;
         minAmount = 0;
         winningUsers = [];
@@ -339,7 +348,8 @@ exports.DecideRaceResult = async (req, res) => {
     res.status(200).json({
       message: "Race result decided successfully",
       winner: {
-        horseId: winningHorseId,
+        horseId: winningHorseId,       // ✅ MongoDB _id
+        horseCustomId: winningHorseCustomId, // ✅ custom ID
         horseName: winningHorseName,
         totalAmount: minAmount,
         users: winningUsers,
