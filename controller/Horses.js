@@ -94,17 +94,32 @@ exports.UpdateHorse = async (req, res) => {
 };
 
 // Delete horse
-exports.DeleteHorse = async (req, res) => {
+exports.deleteHorse = async (req, res) => {
     try {
-        const deletedHorse = await Horses.findByIdAndDelete(req.params.id);
-        if (!deletedHorse) {
-            return res.status(404).json({ message: "Horse not found" });
+        const { id, ids } = req.body; // single id or multiple ids
+
+        if (id) {
+            // Single delete
+            const deletedHorse = await Horses.findByIdAndDelete(id);
+            if (!deletedHorse) {
+                return res.status(404).json({ message: "Horse not found" });
+            }
+            return res.status(200).json({ message: "Horse deleted successfully" });
+        } 
+        
+        if (ids && Array.isArray(ids) && ids.length > 0) {
+            // Bulk delete
+            const result = await Horses.deleteMany({ _id: { $in: ids } });
+            return res.status(200).json({
+                message: `${result.deletedCount} horse(s) deleted successfully`,
+            });
         }
 
-        res.status(200).json({ message: "Horse deleted successfully" });
+        return res.status(400).json({ message: "Please provide id or ids" });
 
     } catch (error) {
         console.error("Error deleting horse:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
