@@ -95,31 +95,30 @@ exports.UpdateHorse = async (req, res) => {
 
 // Delete horse
 exports.deleteHorse = async (req, res) => {
-    try {
-        const { id, ids } = req.body; // single id or multiple ids
-
-        if (id) {
-            // Single delete
-            const deletedHorse = await Horses.findByIdAndDelete(id);
-            if (!deletedHorse) {
-                return res.status(404).json({ message: "Horse not found" });
-            }
-            return res.status(200).json({ message: "Horse deleted successfully" });
-        } 
-        
-        if (ids && Array.isArray(ids) && ids.length > 0) {
-            // Bulk delete
-            const result = await Horses.deleteMany({ _id: { $in: ids } });
-            return res.status(200).json({
-                message: `${result.deletedCount} horse(s) deleted successfully`,
-            });
-        }
-
-        return res.status(400).json({ message: "Please provide id or ids" });
-
-    } catch (error) {
-        console.error("Error deleting horse:", error);
-        res.status(500).json({ message: "Internal server error" });
+  try {
+    // single delete via params
+    if (req.params.id) {
+      const deletedHorse = await Horses.findByIdAndDelete(req.params.id);
+      if (!deletedHorse) {
+        return res.status(404).json({ Result: 0, message: "Horse not found" });
+      }
+      return res.status(200).json({ Result: 1, message: "Horse deleted successfully" });
     }
+
+    // bulk delete via body
+    const { ids } = req.body;
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+      const result = await Horses.deleteMany({ _id: { $in: ids } });
+      return res.status(200).json({
+        Result: 1,
+        message: `${result.deletedCount} horse(s) deleted successfully`,
+      });
+    }
+
+    return res.status(400).json({ Result: 0, message: "Please provide id or ids" });
+  } catch (error) {
+    console.error("Error deleting horse:", error);
+    res.status(500).json({ Result: 0, message: "Internal server error" });
+  }
 };
 
