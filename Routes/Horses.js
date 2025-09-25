@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const HorsesController = require('../controller/Horses');
-
-router.post('/createHorse', HorsesController.CreateHorse);
-router.get('/getAllHorse', HorsesController.GetAllHorses);
-router.get('/getHorseById:id', HorsesController.GetHorseById);
-router.put('/updateHorse:id', HorsesController.UpdateHorse);
-router.delete('deleteHorse/:id', HorsesController.DeleteHorse);
+const admin = require('../middleware/admin');
+router.post('/createHorse',admin, HorsesController.CreateHorse);
+router.get('/getAllHorse',admin, HorsesController.GetAllHorses);
+router.get('/getHorseById/:id',admin, HorsesController.GetHorseById);
+router.post('/updateHorse/:id', admin,HorsesController.UpdateHorse);
+router.get('deleteHorse/:id',admin, HorsesController.DeleteHorse);
 
 module.exports = router;

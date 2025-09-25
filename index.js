@@ -6,6 +6,9 @@ const mongoose=require('mongoose');
 const Authrouter = require('./Routes/authRoute');
 const HorseBetRoute = require('./Routes/HorseBetRoute');
 const Horses = require('./Routes/Horses');
+const PaymentRoutes = require('./Routes/PaymentRoutes');
+const UserManagementroute = require('./Routes/userManagementRoute');
+const LuckyDrawroute = require('./Routes/LuckyDrawRoute');
 const app=express();
 
 app.use(express.json());
@@ -14,6 +17,9 @@ app.use(cors())
 app.use('/',Authrouter)
 app.use('/',HorseBetRoute)
 app.use('/',Horses)
+app.use('/',PaymentRoutes)
+app.use('/',UserManagementroute)
+app.use('/',LuckyDrawroute)
 const server=http.createServer(app);
 
 

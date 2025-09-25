@@ -1,0 +1,36 @@
+const mongoose = require("mongoose");
+
+const LuckyDrawRangeSchema = new mongoose.Schema(
+  {
+    minAmount: {
+      type: Number,
+      required: true,
+      default: 10,
+    },
+    maxAmount: {
+      type: Number,
+      required: true,
+      default: 100,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: {
+      type: Date,
+      
+    },
+  },
+  { collection: "luckyDrawRange" }
+);
+
+module.exports = mongoose.model("LuckyDrawRange", LuckyDrawRangeSchema);

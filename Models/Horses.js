@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const horsesSchema = new mongoose.Schema({
 
-    ID: {
+    horseNumber: {
         type: String,
         required: true  
     }, 

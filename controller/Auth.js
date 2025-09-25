@@ -1,143 +1,108 @@
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const user = require('../Models/user');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-// Register User
+require('dotenv').config();
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../Models/user");
+
+// Helper to generate tokens
+const generateTokens = (userId) => {
+  const accessToken = jwt.sign({ id: userId }, process.env.ACCESS_SECRET, { expiresIn: "7d" });
+  const refreshToken = jwt.sign({ id: userId }, process.env.REFRESH_SECRET, { expiresIn: "14d" });
+  return { accessToken, refreshToken };
+};
+
+// Register
 const register = async (req, res) => {
-    try {
-        const { name, email, password } = req.body;
-        // console.log(req.body,"req.body data a rha h");
-        // Check if all required fields are provided
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Please fill all fields' });
-        }
-
-        // Check if user already exists
-        const existingUser = await user.findOne({ email });
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists' });
-        }
-
-        // Hash the password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Create a new user
-        const newUser = new user({
-            name,
-            email,
-            password: hashedPassword,
-        });
-
-        // Save the user to the database
-        await newUser.save();
-
-        // Generate JWT token
-        const token = jwt.sign({ id: newUser._id }, process.env.secretKey,);
-
-        // Return the token and user info
-        res.status(201).json({
-            message: 'User registered successfully',
-            user: { id: newUser._id, name: newUser.name, email: newUser.email },
-            token,
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: 'Error registering user',
-            error: error.message,
-        });
-    }
-};
-
-// Login User
-const login = async (req, res) => {
-    try {
-        // console.log(req.body,"login ");
-        
-        const { email, password } = req.body;
-
-        // Check if email and password are provided
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Please fill all fields' });
-        }
-
-        // Find the user by email
-        const User = await user.findOne({ email });
-        if (!User) {
-            return res.status(400).json({ message: 'User not found' });
-        }
-
-        // Check if password matches
-        const isMatch = await bcrypt.compare(password, User.password);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
-        }
-
-        // Generate JWT token
-        const token = jwt.sign({ id: User._id }, process.env.secretKey, );
-
-        // Return the token and user info
-        res.status(200).json({
-            message: 'User logged in successfully',
-            user: { id: User._id, name: User.name, email: User.email },
-            token,
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: 'Error logging in user',
-            error: error.message,
-        });
-    }
-};
-
-
-const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
-    const existingUser = await user.findOne({ email });
+    const { name, email, password, userType } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ message: "All fields required" });
 
-    if (!existingUser) {
-      return res.status(404).json({ message: 'User not found with this email' });
-    }
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: "User already exists" });
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(20).toString('hex');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ name, email, password: hashedPassword, userType: userType || "user" });
+    await newUser.save();
 
-    // Set token and expiry (15 minutes)
-    existingUser.resetPasswordToken = resetToken;
-    existingUser.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
-    await existingUser.save();
+    const tokens = generateTokens(newUser._id);
+    newUser.tokens.push(tokens);
+    await newUser.save();
 
-    // Set up email transport (use real credentials in prod)
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.emailUser,
-        pass: process.env.emailPass,
-      },
-    });
-
-    const resetURL = `http://localhost:3000/reset-password/${resetToken}`;
-    const mailOptions = {
-      to: email,
-      from: process.env.emailUser,
-      subject: 'Password Reset Link',
-      html: `<p>Click <a href="${resetURL}">here</a> to reset your password. This link will expire in 15 minutes.</p>`,
-    };
-
-    await transporter.sendMail(mailOptions);
-    res.status(200).json({ message: 'Reset link sent to your email' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error in forgot password', error: error.message });
+    res.status(201).json({ message: "User registered", user: newUser, ...tokens });
+  } catch (err) {
+    res.status(500).json({ message: "Error registering user", error: err.message });
   }
 };
 
+// Login
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ message: "All fields required" });
 
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.isBlocked) return res.status(403).json({ message: "User blocked" });
 
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    // ✅ Generate new tokens
+    const tokens = generateTokens(user._id);
 
-module.exports = {
-    register,
-    login,
+    // ✅ Remove old tokens and save only the new one
+    user.tokens = [tokens];
+    await user.save();
+
+    res.status(200).json({ message: "Login successful", user, ...tokens });
+  } catch (err) {
+    res.status(500).json({ message: "Error logging in", error: err.message });
+  }
 };
+
+// Logout
+const logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ message: "Refresh token required" });
+
+    const user = await User.findOne({ "tokens.refreshToken": refreshToken });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.tokens = user.tokens.filter(t => t.refreshToken !== refreshToken);
+    await user.save();
+
+    res.status(200).json({ message: "Logged out successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Error logging out", error: err.message });
+  }
+};
+
+// Refresh Token
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ message: "Refresh token required" });
+
+    const decoded = jwt.verify(refreshToken, process.env.REFRESH_SECRET);
+    const user = await User.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Check if refresh token exists in DB
+    const tokenExists = user.tokens.some(t => t.refreshToken === refreshToken);
+    if (!tokenExists) return res.status(401).json({ message: "Refresh token invalid" });
+
+    const tokens = generateTokens(user._id);
+
+    // Remove old token and add new token
+    user.tokens = user.tokens.filter(t => t.refreshToken !== refreshToken);
+    user.tokens.push(tokens);
+    await user.save();
+
+    res.status(200).json({ message: "Token refreshed", ...tokens });
+  } catch (err) {
+    res.status(401).json({ message: "Invalid refresh token", error: err.message });
+  }
+};
+
+module.exports = { register, login, logout, refreshToken };

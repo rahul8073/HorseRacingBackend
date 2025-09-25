@@ -1,33 +1,33 @@
 const jwt = require('jsonwebtoken');
 const User = require('../Models/user');
 
-const authMiddleware = async (req, res, next) => {
+const admin = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
 
     // Verify JWT
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
-    const foundUser = await User.findById(decoded.id).select('-password');
 
-    if (!foundUser) return res.status(401).json({ message: 'User not found' });
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // ✅ Check if user is blocked
-    if (foundUser.isBlocked) {
-      return res.status(403).json({ message: 'Your account is blocked. Please contact support.' });
+    // Check user type
+    if (user.userType !== 'admin') {
+      return res.status(403).json({ message: 'Access denied: Admins only' });
     }
 
-    // ✅ Check if token exists in user's saved tokens
-    const tokenExists = foundUser.tokens?.some(t => t.accessToken === token);
+    // Check if token exists in user's saved tokens
+    const tokenExists = user.tokens?.some(t => t.accessToken === token);
     if (!tokenExists) {
       return res.status(401).json({ message: 'Token is invalid or has been revoked' });
     }
 
-    req.user = foundUser;
+    req.user = user;
     next();
   } catch (err) {
     res.status(401).json({ message: 'Token is not valid', error: err.message });
   }
 };
 
-module.exports = authMiddleware;
+module.exports = admin;
