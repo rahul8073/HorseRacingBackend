@@ -12,7 +12,7 @@ exports.CreateHorse = async (req, res) => {
 
         // Validation: check all entries have ID and horseName
         for (const horse of horsesData) {
-            if (!horse.ID || !horse.horseName) {
+            if (!horse.horseNumber || !horse.horseName) {
                 return res.status(400).json({ message: "Each horse must have ID and horseName" });
             }
         }
@@ -21,9 +21,9 @@ exports.CreateHorse = async (req, res) => {
         const ids = horsesData.map(h => h.ID);
         const existingHorses = await Horses.find({ ID: { $in: ids } });
         if (existingHorses.length > 0) {
-            const existingIDs = existingHorses.map(h => h.ID);
+            const existingIDs = existingHorses.map(h => h.horseNumber);
             return res.status(400).json({ 
-                message: "Some IDs already exist", 
+                message: "Some horseNumber already exist", 
                 existingIDs 
             });
         }
@@ -77,7 +77,7 @@ exports.UpdateHorse = async (req, res) => {
 
         const updatedHorse = await Horses.findByIdAndUpdate(
             req.params.id,
-            { ID, horseName },
+            { horseNumber, horseName },
             { new: true, runValidators: true }
         );
 
