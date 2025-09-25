@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/middleware");
-const admin = require("../middleware/admin");
+const admin = require("../middleware/Admin");
 const paymentController = require("../controller/PaymentController");
 
 // User deposits via Razorpay

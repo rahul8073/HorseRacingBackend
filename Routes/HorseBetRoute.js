@@ -1,7 +1,7 @@
 const express=require('express');
 const { CreateHorseBet, GetHorseBets, GetHorseTotalBet, BetHistory, DecideRaceResult, GetAllBets } = require('../controller/HorseBetController');
 const auth = require('../middleware/middleware');
-const admin = require('../middleware/admin');
+const admin = require('../middleware/Admin');
 const router=express.Router();
 router.post('/createBet',auth,CreateHorseBet)
 router.get('/getBet',auth,GetHorseBets)

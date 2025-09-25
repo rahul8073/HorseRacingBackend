@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const HorsesController = require('../controller/Horses');
-const admin = require('../middleware/admin');
+const admin = require('../middleware/Admin');
 router.post('/createHorse',admin, HorsesController.CreateHorse);
 router.get('/getAllHorse',admin, HorsesController.GetAllHorses);
 router.get('/getHorseById/:id',admin, HorsesController.GetHorseById);

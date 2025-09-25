@@ -8,7 +8,7 @@ const {
   deleteLuckyDrawRange,
 } = require("../controller/LuckyDrawController");
 const auth = require("../middleware/middleware"); // user authentication
-const admin = require("../middleware/admin"); // admin check
+const admin = require("../middleware/Admin"); // admin check
 const router = express.Router();
 
 // --------------------
