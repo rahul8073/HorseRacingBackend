@@ -195,7 +195,8 @@ exports.DecideRaceResult = async (req, res) => {
       .populate("horseId", "_id horseNumber horseName")
       .populate("userId", "_id name walletBalance bonusBalance");
 
-    const allHorses = await Horses.find({}, "_id ID horseName");
+    const allHorses = await Horses.find({}, "_id horseName horseNumber");
+
     const totalHorses = allHorses.length;
 
     let winningHorseId = null;
