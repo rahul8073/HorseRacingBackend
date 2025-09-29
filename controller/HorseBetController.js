@@ -191,139 +191,103 @@ exports.GetAllBets = async (req, res) => {
 
 exports.DecideRaceResult = async (req, res) => {
   try {
-    const { totalHorses } = req.params; // user se params me total horses input
-    const totalCount = parseInt(totalHorses);
+    const { totalHorses } = req.params; // 12 ya 22
 
-    if (![12, 22].includes(totalCount)) {
-      return res.status(400).json({
-        message: "Only 12 or 22 horses are allowed in params",
-      });
+    // ✅ Step 1: params validate karo
+    if (!["12", "22"].includes(totalHorses)) {
+      return res.status(400).json({ message: "Invalid totalHorses param, only 12 or 22 allowed" });
     }
+
     const horseLimit = parseInt(totalHorses, 10);
- // payout multiplier
     const payoutMultiplier = horseLimit === 12 ? 10 : 20;
-    // DB me kitne horses hai
-    const allHorses = await Horses.find(
-      { horseNumber: { $lte: horseLimit } },
-      "_id horseName horseNumber"
-    );
-    const dbHorseCount = allHorses.length;
 
-    // ✅ check karo DB count aur user input same hai ki nahi
-    if (dbHorseCount !== totalCount) {
-      return res.status(400).json({
-        message: `Mismatch: You requested ${totalCount} horses but DB has ${dbHorseCount} horses.`,
-      });
+    // ✅ Step 2: sirf selected range ke horses lo
+   let allHorses = await Horses.find({}, "_id horseName horseNumber");
+
+    // Filter horses 1..horseLimit (horseNumber string me hai)
+    allHorses = allHorses
+      .filter(h => {
+        const num = Number(h.horseNumber);
+        return num >= 1 && num <= horseLimit;
+      })
+      .sort((a, b) => Number(a.horseNumber) - Number(b.horseNumber)); // sort by numeric horseNumber
+
+    if (allHorses.length !== horseLimit) {
+      return res.status(400).json({ message: `Race requires ${horseLimit} horses, found ${allHorses.length}` });
     }
 
-   
-
+    // ✅ Step 3: bets fetch karo
     const allBets = await HorseBet.find()
       .populate("horseId", "_id horseNumber horseName")
       .populate("userId", "_id name walletBalance bonusBalance");
 
-    let winningHorseId = null;
-    let winningHorseNumber = null;
-    let winningHorseName = null;
-    let minAmount = Infinity;
-    let winningUsers = [];
+    let winningHorse = null;
 
-    if (allBets.length > 0) {
-      const grouped = {};
-      allBets.forEach((bet) => {
-        const id = bet.horseId._id.toString();
-        if (!grouped[id]) {
-          grouped[id] = {
-            totalAmount: 0,
-            horseName: bet.horseId.horseName,
-            horseNumber: bet.horseId.horseNumber,
-          };
-        }
-        grouped[id].totalAmount += bet.Amount;
+    // ✅ Step 4: check karo ki sab horses pe bet hai ya nahi
+    const horsesWithBets = new Set(allBets.map(bet => bet.horseId.horseNumber));
+    const horsesWithoutBets = allHorses.filter(h => !horsesWithBets.has(h.horseNumber));
+
+    if (horsesWithoutBets.length > 0) {
+      // Agar koi horse pe bet nahi laga, to unme se random winner choose karo
+      winningHorse = horsesWithoutBets[Math.floor(Math.random() * horsesWithoutBets.length)];
+    } else {
+      // Sab horses pe bet hai → lowest bet wale horse ko winner choose karo
+      const betTotals = {};
+      allBets.forEach(bet => {
+        betTotals[bet.horseId.horseNumber] = (betTotals[bet.horseId.horseNumber] || 0) + bet.Amount;
       });
 
-      const betHorseIds = Object.keys(grouped);
+      const minBetHorseNumber = Object.keys(betTotals).reduce((a, b) =>
+        betTotals[a] < betTotals[b] ? a : b
+      );
 
-      // Case 1: सभी horses पर bet है → सबसे कम bet वाला जीतेगा
-      if (betHorseIds.length === allHorses.length) {
-        for (let horseId in grouped) {
-          if (grouped[horseId].totalAmount < minAmount) {
-            minAmount = grouped[horseId].totalAmount;
-            winningHorseId = horseId;
-            winningHorseNumber = grouped[horseId].horseNumber;
-            winningHorseName = grouped[horseId].horseName;
-          }
-        }
+      winningHorse = allHorses.find(h => h.horseNumber == minBetHorseNumber);
+    }
 
-        const usersWhoBet = allBets.filter(
-          bet => bet.horseId._id.toString() === winningHorseId
-        );
+    // ✅ Step 5: payout distribute karo
+    let winningUsers = [];
+    for (const bet of allBets) {
+      if (bet.horseId.horseNumber == winningHorse.horseNumber) {
+        const winningAmount = bet.Amount * payoutMultiplier;
+        winningUsers.push({
+          userId: bet.userId._id,
+          name: bet.userId.name,
+          betAmount: bet.Amount,
+          winningAmount
+        });
 
-        for (const bet of usersWhoBet) {
-          const winningAmount = bet.Amount * payoutMultiplier; // ✅ payout 10x / 20x
-          winningUsers.push({
-            userId: bet.userId._id,
-            name: bet.userId.name,
-            betAmount: bet.Amount,
-            winningAmount
-          });
-
-          const user = await User.findById(bet.userId._id);
-          user.walletBalance += winningAmount;
-          await user.save();
-        }
-      } else {
-        // Case 2: कुछ horses पर bet नहीं है → random zero bet horse जीतेगा
-        const zeroBetHorses = allHorses.filter(
-          h => !betHorseIds.includes(h._id.toString())
-        );
-
-        if (zeroBetHorses.length > 0) {
-          const randomHorse = zeroBetHorses[Math.floor(Math.random() * zeroBetHorses.length)];
-          winningHorseId = randomHorse._id.toString();
-          winningHorseNumber = randomHorse.horseNumber;
-          winningHorseName = randomHorse.horseName;
-          minAmount = 0;
-          winningUsers = [];
-        }
-      }
-
-      // Bet history save
-      const historyData = allBets.map(bet => ({
-        userId: bet.userId._id,
-        horseId: bet.horseId._id,
-        horseNumber: bet.horseId.horseNumber,
-        horseName: bet.horseId.horseName,
-        betAmount: bet.Amount,
-        winningAmount: bet.horseId._id.toString() === winningHorseId ? bet.Amount * payoutMultiplier : 0,
-        status: bet.horseId._id.toString() === winningHorseId ? "won" : "lost",
-        raceDate: new Date(),
-      }));
-
-      if (historyData.length > 0) await BetHistory.insertMany(historyData);
-
-      await HorseBet.deleteMany({});
-    } else {
-      // Case 3: कोई bet नहीं → random horse जीतेगा
-      if (allHorses.length > 0) {
-        const randomHorse = allHorses[Math.floor(Math.random() * allHorses.length)];
-        winningHorseId = randomHorse._id.toString();
-        winningHorseNumber = randomHorse.horseNumber;
-        winningHorseName = randomHorse.horseName;
-        minAmount = 0;
-        winningUsers = [];
+        // User wallet update
+        const user = await User.findById(bet.userId._id);
+        user.walletBalance += winningAmount;
+        await user.save();
       }
     }
 
+    // ✅ Step 6: bet history save karo
+    const historyData = allBets.map(bet => ({
+      userId: bet.userId._id,
+      horseId: bet.horseId._id,
+      horseNumber: bet.horseId.horseNumber,
+      horseName: bet.horseId.horseName,
+      betAmount: bet.Amount,
+      winningAmount: bet.horseId.horseNumber == winningHorse.horseNumber ? bet.Amount * payoutMultiplier : 0,
+      status: bet.horseId.horseNumber == winningHorse.horseNumber ? "won" : "lost",
+      raceDate: new Date(),
+    }));
+
+    if (historyData.length > 0) await BetHistory.insertMany(historyData);
+
+    // ✅ Step 7: clear current bets
+    await HorseBet.deleteMany({});
+
     res.status(200).json({
       message: "Race result decided successfully",
-      requestedHorses: totalCount,
+      totalHorses: horseLimit,
       payoutMultiplier,
       winner: {
-        horseId: winningHorseId,
-        horseNumber: winningHorseNumber,
-        horseName: winningHorseName,
-        totalAmount: minAmount,
+        horseId: winningHorse._id,
+        horseNumber: winningHorse.horseNumber,
+        horseName: winningHorse.horseName,
         users: winningUsers,
       },
     });
@@ -332,5 +296,6 @@ exports.DecideRaceResult = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
