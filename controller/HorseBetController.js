@@ -199,9 +199,14 @@ exports.DecideRaceResult = async (req, res) => {
         message: "Only 12 or 22 horses are allowed in params",
       });
     }
-
+    const horseLimit = parseInt(totalHorses, 10);
+ // payout multiplier
+    const payoutMultiplier = horseLimit === 12 ? 10 : 20;
     // DB me kitne horses hai
-    const allHorses = await Horses.find({}, "_id horseName horseNumber");
+    const allHorses = await Horses.find(
+      { horseNumber: { $lte: horseLimit } },
+      "_id horseName horseNumber"
+    );
     const dbHorseCount = allHorses.length;
 
     // ✅ check karo DB count aur user input same hai ki nahi
@@ -211,8 +216,7 @@ exports.DecideRaceResult = async (req, res) => {
       });
     }
 
-    // payout multiplier
-    const payoutMultiplier = totalCount === 12 ? 10 : 20;
+   
 
     const allBets = await HorseBet.find()
       .populate("horseId", "_id horseNumber horseName")
