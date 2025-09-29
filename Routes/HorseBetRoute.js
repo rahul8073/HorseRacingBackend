@@ -7,7 +7,7 @@ router.post('/createBet',auth,CreateHorseBet)
 router.get('/getBet',auth,GetHorseBets)
 router.get('/getTotalBet',auth,GetHorseTotalBet)
 router.get('/BetHistory',auth,BetHistory)
-router.get('/raceResult',auth,DecideRaceResult)
+router.get('/raceResult/:totalHorses',auth,DecideRaceResult)
 // admin ke liye
 router.get("/all-bets", auth, admin, GetAllBets);
 router.get("/current-bets", auth, admin, GetHorseTotalBet);
