@@ -251,8 +251,9 @@ exports.DecideRaceResult = async (req, res) => {
       );
 
       winningHorse = allHorses.find(
-        h => h.horseNumber === Number(minBetHorseNumber)
+        h => h.horseNumber === minBetHorseNumber
       );
+      // console.log("winningHorse: ", minBetHorseNumber,winningHorse);
     }
 
     // ✅ Step 5: payout distribute karo
