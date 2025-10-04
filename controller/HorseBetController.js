@@ -277,6 +277,132 @@ exports.GetAllBets = async (req, res) => {
   }
 };
 
+// exports.DecideRaceResult = async (req, res) => {
+//   try {
+//     const { totalHorses } = req.params; // 12 ya 22
+
+//     // ✅ Step 1: params validate
+//     if (!["12", "22"].includes(totalHorses)) {
+//       return res.status(400).json({
+//         message: "Invalid totalHorses param, only 12 or 22 allowed",
+//       });
+//     }
+
+//     const horseLimit = parseInt(totalHorses, 10);
+//     const payoutMultiplier = horseLimit === 12 ? 10 : 20;
+
+//     // ✅ Step 2: sirf selected range ke horses lo
+//     let allHorses = await Horses.find({}, "_id horseName horseNumber");
+
+//     allHorses = allHorses
+//       .filter(h => h.horseNumber >= 1 && h.horseNumber <= horseLimit)
+//       .sort((a, b) => a.horseNumber - b.horseNumber);
+
+//     if (allHorses.length !== horseLimit) {
+//       return res.status(400).json({
+//         message: `Race requires ${horseLimit} horses, found ${allHorses.length}`,
+//       });
+//     }
+
+//     // ✅ Step 3: bets fetch karo
+//     const allBets = await HorseBet.find()
+//       .populate("horseId", "_id horseNumber horseName")
+//       .populate("userId", "_id name walletBalance bonusBalance");
+
+//     // 🚨 Null horseId / userId वाले bets ignore karo
+//     const validBets = allBets.filter(
+//       bet => bet.horseId !== null && bet.userId !== null
+//     );
+
+//     let winningHorse = null;
+
+//     // ✅ Step 4: check karo ki sab horses pe bet hai ya nahi
+//     const horsesWithBets = new Set(validBets.map(bet => bet.horseId.horseNumber));
+//     const horsesWithoutBets = allHorses.filter(
+//       h => !horsesWithBets.has(h.horseNumber)
+//     );
+
+//     if (horsesWithoutBets.length > 0) {
+//       // Agar koi horse pe bet nahi hai → unme se random winner choose karo
+//       winningHorse =
+//         horsesWithoutBets[Math.floor(Math.random() * horsesWithoutBets.length)];
+//     } else {
+//       // Sab horses pe bet hai → lowest bet wale horse ko winner choose karo
+//       const betTotals = {};
+//       validBets.forEach(bet => {
+//         betTotals[bet.horseId.horseNumber] =
+//           (betTotals[bet.horseId.horseNumber] || 0) + bet.Amount;
+//       });
+
+//       const minBetHorseNumber = Object.keys(betTotals).reduce((a, b) =>
+//         betTotals[a] < betTotals[b] ? a : b
+//       );
+
+//       winningHorse = allHorses.find(
+//         h => h.horseNumber === minBetHorseNumber
+//       );
+//       // console.log("winningHorse: ", minBetHorseNumber,winningHorse);
+//     }
+
+//     // ✅ Step 5: payout distribute karo
+//     let winningUsers = [];
+//     for (const bet of validBets) {
+//       if (bet.horseId.horseNumber === winningHorse.horseNumber) {
+//         const winningAmount = bet.Amount * payoutMultiplier;
+//         winningUsers.push({
+//           userId: bet.userId._id,
+//           name: bet.userId.name,
+//           betAmount: bet.Amount,
+//           winningAmount,
+//         });
+
+//         // user wallet update
+//         const user = await User.findById(bet.userId._id);
+//         if (user) {
+//           user.walletBalance += winningAmount;
+//           await user.save();
+//         }
+//       }
+//     }
+
+//     // ✅ Step 6: bet history save karo
+//     const historyData = validBets.map(bet => ({
+//       userId: bet.userId._id,
+//       horseId: bet.horseId._id,
+//       horseNumber: bet.horseId.horseNumber,
+//       horseName: bet.horseId.horseName,
+//       betAmount: bet.Amount,
+//       winningAmount:
+//         bet.horseId.horseNumber === winningHorse.horseNumber
+//           ? bet.Amount * payoutMultiplier
+//           : 0,
+//       status:
+//         bet.horseId.horseNumber === winningHorse.horseNumber ? "won" : "lost",
+//       raceDate: new Date(),
+//     }));
+
+//     if (historyData.length > 0) await BetHistory.insertMany(historyData);
+
+//     // ✅ Step 7: clear current bets
+//     await HorseBet.deleteMany({});
+
+//     res.status(200).json({
+//       message: "Race result decided successfully",
+//       totalHorses: horseLimit,
+//       payoutMultiplier,
+//       winner: {
+//         horseId: winningHorse._id,
+//         horseNumber: winningHorse.horseNumber,
+//         horseName: winningHorse.horseName,
+//         users: winningUsers,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error deciding race result:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 exports.DecideRaceResult = async (req, res) => {
   try {
     const { totalHorses } = req.params; // 12 ya 22
@@ -293,7 +419,6 @@ exports.DecideRaceResult = async (req, res) => {
 
     // ✅ Step 2: sirf selected range ke horses lo
     let allHorses = await Horses.find({}, "_id horseName horseNumber");
-
     allHorses = allHorses
       .filter(h => h.horseNumber >= 1 && h.horseNumber <= horseLimit)
       .sort((a, b) => a.horseNumber - b.horseNumber);
@@ -309,58 +434,81 @@ exports.DecideRaceResult = async (req, res) => {
       .populate("horseId", "_id horseNumber horseName")
       .populate("userId", "_id name walletBalance bonusBalance");
 
-    // 🚨 Null horseId / userId वाले bets ignore karo
     const validBets = allBets.filter(
       bet => bet.horseId !== null && bet.userId !== null
     );
 
     let winningHorse = null;
+    let winningBet = null;
 
-    // ✅ Step 4: check karo ki sab horses pe bet hai ya nahi
+    // ✅ Step 4: horsesWithBets nikaalo
     const horsesWithBets = new Set(validBets.map(bet => bet.horseId.horseNumber));
     const horsesWithoutBets = allHorses.filter(
       h => !horsesWithBets.has(h.horseNumber)
     );
 
-    if (horsesWithoutBets.length > 0) {
-      // Agar koi horse pe bet nahi hai → unme se random winner choose karo
-      winningHorse =
-        horsesWithoutBets[Math.floor(Math.random() * horsesWithoutBets.length)];
+    if (horsesWithBets.size === 0) {
+      // 👉 Case 1: koi bhi bet nahi hai → random horse winner
+      winningHorse = allHorses[Math.floor(Math.random() * allHorses.length)];
+    } else if (horsesWithBets.size === 1) {
+      // 👉 Case 2: sirf ek horse pe bet laga hai → un horses me se random jinke paas bet nahi hai
+      if (horsesWithoutBets.length > 0) {
+        winningHorse =
+          horsesWithoutBets[Math.floor(Math.random() * horsesWithoutBets.length)];
+      } else {
+        // fallback: agar sab horses pe bet laga hai (rare case)
+        const sameHorseBets = validBets.filter(
+          bet => bet.horseId.horseNumber === [...horsesWithBets][0]
+        );
+        winningBet = sameHorseBets.reduce((min, bet) =>
+          !min || bet.Amount < min.Amount ? bet : min
+        , null);
+        winningHorse = winningBet.horseId;
+      }
     } else {
-      // Sab horses pe bet hai → lowest bet wale horse ko winner choose karo
-      const betTotals = {};
-      validBets.forEach(bet => {
-        betTotals[bet.horseId.horseNumber] =
-          (betTotals[bet.horseId.horseNumber] || 0) + bet.Amount;
-      });
-
-      const minBetHorseNumber = Object.keys(betTotals).reduce((a, b) =>
-        betTotals[a] < betTotals[b] ? a : b
-      );
-
-      winningHorse = allHorses.find(
-        h => h.horseNumber === minBetHorseNumber
-      );
-      // console.log("winningHorse: ", minBetHorseNumber,winningHorse);
+      // 👉 Case 3: multiple horses pe bet lage hain → lowest bet winner
+      winningBet = validBets.reduce((min, bet) =>
+        !min || bet.Amount < min.Amount ? bet : min
+      , null);
+      winningHorse = winningBet.horseId;
     }
 
     // ✅ Step 5: payout distribute karo
     let winningUsers = [];
     for (const bet of validBets) {
-      if (bet.horseId.horseNumber === winningHorse.horseNumber) {
-        const winningAmount = bet.Amount * payoutMultiplier;
-        winningUsers.push({
-          userId: bet.userId._id,
-          name: bet.userId.name,
-          betAmount: bet.Amount,
-          winningAmount,
-        });
+      if (winningBet) {
+        // Agar ek specific bet jeeta
+        if (bet._id.toString() === winningBet._id.toString()) {
+          const winningAmount = bet.Amount * payoutMultiplier;
+          winningUsers.push({
+            userId: bet.userId._id,
+            name: bet.userId.name,
+            betAmount: bet.Amount,
+            winningAmount,
+          });
 
-        // user wallet update
-        const user = await User.findById(bet.userId._id);
-        if (user) {
-          user.walletBalance += winningAmount;
-          await user.save();
+          const user = await User.findById(bet.userId._id);
+          if (user) {
+            user.walletBalance += winningAmount;
+            await user.save();
+          }
+        }
+      } else {
+        // Agar random horse jeeta (jispe bet nahi tha)
+        if (bet.horseId.horseNumber === winningHorse.horseNumber) {
+          const winningAmount = bet.Amount * payoutMultiplier;
+          winningUsers.push({
+            userId: bet.userId._id,
+            name: bet.userId.name,
+            betAmount: bet.Amount,
+            winningAmount,
+          });
+
+          const user = await User.findById(bet.userId._id);
+          if (user) {
+            user.walletBalance += winningAmount;
+            await user.save();
+          }
         }
       }
     }
@@ -373,11 +521,21 @@ exports.DecideRaceResult = async (req, res) => {
       horseName: bet.horseId.horseName,
       betAmount: bet.Amount,
       winningAmount:
-        bet.horseId.horseNumber === winningHorse.horseNumber
-          ? bet.Amount * payoutMultiplier
-          : 0,
+        winningBet
+          ? bet._id.toString() === winningBet._id.toString()
+            ? bet.Amount * payoutMultiplier
+            : 0
+          : bet.horseId.horseNumber === winningHorse.horseNumber
+            ? bet.Amount * payoutMultiplier
+            : 0,
       status:
-        bet.horseId.horseNumber === winningHorse.horseNumber ? "won" : "lost",
+        winningBet
+          ? bet._id.toString() === winningBet._id.toString()
+            ? "won"
+            : "lost"
+          : bet.horseId.horseNumber === winningHorse.horseNumber
+            ? "won"
+            : "lost",
       raceDate: new Date(),
     }));
 
@@ -402,6 +560,8 @@ exports.DecideRaceResult = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 
 
