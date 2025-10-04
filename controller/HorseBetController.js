@@ -69,6 +69,93 @@ const User = require("../Models/user");
 //   }
 // };
 
+// exports.CreateHorseBet = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+//     if (!userId)
+//       return res.status(401).json({ message: "Unauthorized: User not logged in" });
+
+//     const { horseNumber, Amount, bets } = req.body;
+
+//     // --- Case 1: Multiple Bets ---
+//     let betsToPlace = [];
+//     if (Array.isArray(bets) && bets.length > 0) {
+//       betsToPlace = bets;
+//     } else if (horseNumber && Amount) {
+//       // --- Case 2: Single Bet ---
+//       betsToPlace = [{ horseNumber, Amount }];
+//     } else {
+//       return res.status(400).json({ message: "Invalid bet data" });
+//     }
+
+//     // Fetch user
+//     const user = await User.findById(userId);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     // Total required balance
+//     let totalAmount = betsToPlace.reduce((sum, b) => sum + Number(b.Amount || 0), 0);
+//     if (totalAmount <= 0) {
+//       return res.status(400).json({ message: "Bet amount must be positive" });
+//     }
+
+//     // Deduct balances (bonus first, then wallet)
+//     let remaining = totalAmount;
+//     if (user.bonusBalance >= remaining) {
+//       user.bonusBalance -= remaining;
+//       remaining = 0;
+//     } else {
+//       remaining -= user.bonusBalance;
+//       user.bonusBalance = 0;
+
+//       if (user.walletBalance < remaining) {
+//         return res.status(400).json({ message: "Insufficient funds (bonus + wallet)" });
+//       }
+//       user.walletBalance -= remaining;
+//       remaining = 0;
+//     }
+
+//     await user.save();
+
+//     // Create all bets
+//     let placedBets = [];
+//     for (const b of betsToPlace) {
+//       if (!b.horseNumber || !b.Amount || b.Amount <= 0) continue;
+
+//       const horse = await Horses.findOne({ horseNumber: b.horseNumber });
+//       if (!horse) continue;
+
+//       const newBet = new HorseBet({
+//         userId,
+//         horseId: horse._id,
+//         Amount: Number(b.Amount),
+//       });
+//       await newBet.save();
+
+//       placedBets.push({
+//         _id: newBet._id,
+//         Amount: newBet.Amount,
+//         horse: {
+//           _id: horse._id,
+//           horseNumber: horse.horseNumber,
+//           horseName: horse.horseName,
+//         },
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: "Bets placed successfully",
+//       bets: placedBets,
+//       user: {
+//         walletBalance: user.walletBalance,
+//         bonusBalance: user.bonusBalance,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error creating bet:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 exports.CreateHorseBet = async (req, res) => {
   try {
     const userId = req.user?._id;
@@ -108,7 +195,9 @@ exports.CreateHorseBet = async (req, res) => {
       user.bonusBalance = 0;
 
       if (user.walletBalance < remaining) {
-        return res.status(400).json({ message: "Insufficient funds (bonus + wallet)" });
+        return res
+          .status(400)
+          .json({ message: "Insufficient funds (bonus + wallet)" });
       }
       user.walletBalance -= remaining;
       remaining = 0;
@@ -116,7 +205,7 @@ exports.CreateHorseBet = async (req, res) => {
 
     await user.save();
 
-    // Create all bets
+    // ✅ Create or Update bets
     let placedBets = [];
     for (const b of betsToPlace) {
       if (!b.horseNumber || !b.Amount || b.Amount <= 0) continue;
@@ -124,22 +213,42 @@ exports.CreateHorseBet = async (req, res) => {
       const horse = await Horses.findOne({ horseNumber: b.horseNumber });
       if (!horse) continue;
 
-      const newBet = new HorseBet({
-        userId,
-        horseId: horse._id,
-        Amount: Number(b.Amount),
-      });
-      await newBet.save();
+      // --- Check if same user already bet on this horse ---
+      let existingBet = await HorseBet.findOne({ userId, horseId: horse._id });
 
-      placedBets.push({
-        _id: newBet._id,
-        Amount: newBet.Amount,
-        horse: {
-          _id: horse._id,
-          horseNumber: horse.horseNumber,
-          horseName: horse.horseName,
-        },
-      });
+      if (existingBet) {
+        // update existing bet amount
+        existingBet.Amount += Number(b.Amount);
+        await existingBet.save();
+
+        placedBets.push({
+          _id: existingBet._id,
+          Amount: existingBet.Amount,
+          horse: {
+            _id: horse._id,
+            horseNumber: horse.horseNumber,
+            horseName: horse.horseName,
+          },
+        });
+      } else {
+        // create new bet
+        const newBet = new HorseBet({
+          userId,
+          horseId: horse._id,
+          Amount: Number(b.Amount),
+        });
+        await newBet.save();
+
+        placedBets.push({
+          _id: newBet._id,
+          Amount: newBet.Amount,
+          horse: {
+            _id: horse._id,
+            horseNumber: horse.horseNumber,
+            horseName: horse.horseName,
+          },
+        });
+      }
     }
 
     res.status(200).json({
@@ -155,6 +264,7 @@ exports.CreateHorseBet = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 
 exports.GetHorseBets = async (req, res) => {
