@@ -3,14 +3,18 @@ const mongoose = require('mongoose');
 const horsesSchema = new mongoose.Schema(
   {
     horseNumber: {
-      type: String,
+      type: Number,
       required: true,
-      unique: true, // ✅ prevent duplicates at DB level too
+      unique: true, // Prevent duplicate horse numbers
     },
     horseName: {
       type: String,
       required: true,
-       unique: true, 
+      unique: true, // Prevent duplicate horse names
+    },
+    isActive: {
+      type: Boolean,
+      default: true, // ✅ Default: horse is active when created
     },
   },
   { timestamps: true }

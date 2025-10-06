@@ -8,5 +8,6 @@ router.get('/getHorseById/:id',admin, HorsesController.GetHorseById);
 router.post('/updateHorse/:id', admin,HorsesController.UpdateHorse);
 router.get('/deleteHorse/:id',admin, HorsesController.DeleteHorse);
 router.post('/deleteBulkHorse',admin, HorsesController.DeleteHorse);
+router.post("/set-horse-activation", admin,HorsesController.SetHorseActivation);
 
 module.exports = router;

@@ -133,3 +133,66 @@ exports.DeleteHorse = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+exports.SetHorseActivation = async (req, res) => {
+  try {
+    let { horseNumber } = req.body;
+
+    if (!horseNumber) {
+      return res.status(400).json({
+        Result: 0,
+        message: "Please provide horseNumber",
+      });
+    }
+
+    horseNumber = Number(horseNumber); // ensure it's a number
+
+    // Case 1: Admin sets 12 → toggle 1–12 active/inactive, deactivate others
+    if (horseNumber === 12) {
+      console.log("12 ke andar aya")
+      // Find current status of first 12
+      const first12Active = await Horses.exists({ horseNumber: { $lte: 12 }, isActive: true });
+// console.log("Active: ",first12Active)
+      // If currently active → deactivate 1–12, else activate 1–12
+      await Horses.updateMany(
+        { horseNumber: { $lte: 12 } },
+        { $set: { isActive: first12Active ? false : true } }
+      );
+
+      // Deactivate all horses beyond 12
+      await Horses.updateMany(
+        { horseNumber: { $gt: 12 } },
+        { $set: { isActive: false } }
+      );
+
+      return res.status(200).json({
+        Result: 1,
+        message: first12Active
+          ? "Horses 1–12 deactivated, others remain inactive"
+          : "Horses 1–12 activated, others deactivated",
+      });
+    }
+
+    // Case 2: Admin sets 22 → toggle all horses
+    if (horseNumber === 22) {
+      const anyInactive = await Horses.exists({ isActive: false });
+
+      await Horses.updateMany({}, { $set: { isActive: anyInactive ? true : false } });
+
+      return res.status(200).json({
+        Result: 1,
+        message: anyInactive ? "All horses activated" : "All horses deactivated",
+      });
+    }
+
+    return res.status(400).json({
+      Result: 0,
+      message: "Invalid horseNumber. Only 12 or 22 allowed.",
+    });
+  } catch (error) {
+    console.error("Error setting horse activation:", error);
+    res.status(500).json({
+      Result: 0,
+      message: "Internal server error",
+    });
+  }
+};

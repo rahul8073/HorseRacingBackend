@@ -34,6 +34,32 @@ const register = async (req, res) => {
 };
 
 // Login
+// const login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+//     if (!email || !password)
+//       return res.status(400).json({ message: "All fields required" });
+
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(404).json({ message: "User not found" });
+//     if (user.isBlocked) return res.status(403).json({ message: "User blocked" });
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+//     // ✅ Generate new tokens
+//     const tokens = generateTokens(user._id);
+
+//     // ✅ Remove old tokens and save only the new one
+//     user.tokens = [tokens];
+//     await user.save();
+
+//     res.status(200).json({ message: "Login successful", user, ...tokens });
+//   } catch (err) {
+//     res.status(500).json({ message: "Error logging in", error: err.message });
+//   }
+// };
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -47,18 +73,34 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    // ✅ Generate new tokens
     const tokens = generateTokens(user._id);
 
-    // ✅ Remove old tokens and save only the new one
     user.tokens = [tokens];
     await user.save();
 
-    res.status(200).json({ message: "Login successful", user, ...tokens });
+    if (user.userType === "admin") {
+      // Admin: only username and tokens
+      return res.status(200).json({
+        message: "Login successful",
+        username: user.username || user.email,
+        ...tokens,
+      });
+    } else {
+      // Non-admin: full user info + active horses
+      const activeHorseCount = await Horses.countDocuments({ isActive: true });
+
+      return res.status(200).json({
+        message: "Login successful",
+        user,
+        activeHorseCount,
+        ...tokens,
+      });
+    }
   } catch (err) {
     res.status(500).json({ message: "Error logging in", error: err.message });
   }
 };
+
 
 // Logout
 const logout = async (req, res) => {
@@ -105,4 +147,42 @@ const refreshToken = async (req, res) => {
   }
 };
 
-module.exports = { register, login, logout, refreshToken };
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user._id; // assuming auth middleware sets req.user
+
+    const user = await User.findById(userId).select("-password -tokens"); // exclude sensitive info
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({
+      message: "Profile fetched successfully",
+      user,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching profile", error: err.message });
+  }
+};
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { firstName, lastName, email } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (email) user.email = email;
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      user,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating profile", error: err.message });
+  }
+};
+
+module.exports = { register, login, logout, refreshToken ,getProfile,updateProfile};
