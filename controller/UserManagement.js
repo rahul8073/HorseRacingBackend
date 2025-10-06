@@ -70,9 +70,37 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const getWalletBalance = async (req, res) => {
+  try {
+    const userId = req.user?._id; // middleware se user aana chahiye
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized: User not logged in" });
+    }
+
+    const user = await User.findById(userId).select("walletBalance bonusBalance name email");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Wallet balance fetched successfully",
+      walletBalance: user.walletBalance,
+      bonusBalance: user.bonusBalance,
+      user: {
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching wallet balance:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 module.exports = {
   getAllUsers,
   blockUser,
   unblockUser,
   deleteUser,
+  getWalletBalance
 };

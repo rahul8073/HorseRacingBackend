@@ -57,6 +57,27 @@ exports.GetAllHorses = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+// ✅ Get horses with limit (based on horseNumber order)
+exports.GetLimitedHorses = async (req, res) => {
+  try {
+    const { limit } = req.params; // URL से params लेना (12 या 22)
+
+    // limit को number में बदलो
+    const horseLimit = parseInt(limit, 10);
+
+    if (isNaN(horseLimit) || horseLimit <= 0) {
+      return res.status(400).json({ Result: 0, message: "Invalid limit parameter" });
+    }
+    const horses = await Horses.find()
+      .sort({ horseNumber: 1 }) // horseNumber ascending order
+      .limit(horseLimit);
+
+    res.status(200).json({ Result: 1, horses });
+  } catch (error) {
+    console.error("Error fetching limited horses:", error);
+    res.status(500).json({ Result: 0, message: "Internal server error" });
+  }
+};
 
 // Get horse by MongoDB _id
 exports.GetHorseById = async (req, res) => {

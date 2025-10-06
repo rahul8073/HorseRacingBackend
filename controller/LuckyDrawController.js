@@ -73,44 +73,52 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 // --------------------
 // User: Run lucky draw (24 hrs check)
 // --------------------
+function formatDateTime(date) {
+  return date.toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  });
+}
+
 exports.userLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    // Get the lucky draw range set by admin
+    // Get range
     const range = await LuckyDrawRange.findOne();
-    if (!range)
-      return res
-        .status(400)
-        .json({ message: "Lucky draw range not set by admin" });
+    if (!range) {
+      return res.status(400).json({ message: "Lucky draw range not set by admin" });
+    }
 
-    // Check if user already won in last 24 hours
-    const lastDraw = await LuckyDraw.findOne({ winnerId: userId }).sort({
-      createdAt: -1,
-    });
+    // Last draw
+    const lastDraw = await LuckyDraw.findOne({ winnerId: userId }).sort({ createdAt: -1 });
     const now = new Date();
 
     if (lastDraw && now - lastDraw.createdAt < 24 * 60 * 60 * 1000) {
-      return res
-        .status(400)
-        .json({ message: "Lucky draw already run in last 24 hours" });
+      return res.status(400).json({
+        message: "Lucky draw already run in last 24 hours",
+        lastDrawTime: formatDateTime(lastDraw.createdAt)
+      });
     }
 
-    // Calculate random bonus
+    // Random bonus
     const bonusAmount = Math.floor(
       Math.random() * (range.maxAmount - range.minAmount + 1) + range.minAmount
     );
 
-    // Update user's bonus balance
+    // Update user
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
-    user.bonusBalance = Number(user.bonusBalance) ;
-    console.log("bonusBalance: ",user.bonusBalance,bonusAmount );
-    user.bonusBalance += bonusAmount;
+    user.bonusBalance = Number(user.bonusBalance) + bonusAmount;
     await user.save();
 
-    // Save lucky draw record
+    // Save record
     const luckyDraw = new LuckyDraw({
       winnerId: userId,
       winnerName: user.name,
@@ -118,12 +126,19 @@ exports.userLuckyDraw = async (req, res) => {
     });
     await luckyDraw.save();
 
-    res.status(200).json({ message: "Lucky draw success", bonusAmount });
+    res.status(200).json({
+      message: "Lucky draw success",
+      bonusAmount,
+      lastDrawTime: lastDraw ? formatDateTime(lastDraw.createdAt) : null,
+      currentDrawTime: formatDateTime(luckyDraw.createdAt)
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+
 
 // --------------------
 // User: Get own history
