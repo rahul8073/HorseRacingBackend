@@ -82,7 +82,7 @@ const login = async (req, res) => {
       // Admin: only username and tokens
       return res.status(200).json({
         message: "Login successful",
-        username: user.username || user.email,
+        username: user.name || user.email,
         ...tokens,
       });
     } else {
