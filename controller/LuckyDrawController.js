@@ -45,7 +45,7 @@ exports.setLuckyDrawRange = async (req, res) => {
 // --------------------
 exports.getLuckyDrawRange = async (req, res) => {
   try {
-    const range = await LuckyDrawRange.findOne()
+    const range = await LuckyDrawRange.find()
       .populate("createdBy", "name")
       .populate("updatedBy", "name")
       .populate("eligibleUsers", "name email"); // ✅ populate eligibleUsers
