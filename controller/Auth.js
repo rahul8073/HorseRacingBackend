@@ -2,6 +2,7 @@ require('dotenv').config();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../Models/user");
+const Horses = require('../Models/Horses');
 
 // Helper to generate tokens
 const generateTokens = (userId) => {

@@ -8,6 +8,7 @@ const betHistorySchema = new mongoose.Schema({
     betAmount: { type: Number, required: true },
     winningAmount: { type: Number, required: true },
     status: { type: String, enum: ['won', 'lost'], required: true },
+    mode: { type: String, enum: ['High', 'Low'], required: true },
     raceDate: { type: Date, default: Date.now }
 }, { timestamps: true });
 
