@@ -823,9 +823,7 @@ exports.DecideRaceResult = async (req, res) => {
     if (historyData.length > 0) await BetHistory.insertMany(historyData);
 
     // ✅ Step 7: clear only race bets
-    await HorseBet.deleteMany({
-      "horseId.horseNumber": { $gte: 1, $lte: horseLimit },
-    });
+      await HorseBet.deleteMany({});
 
     res.status(200).json({
       message: "Race result decided successfully",
