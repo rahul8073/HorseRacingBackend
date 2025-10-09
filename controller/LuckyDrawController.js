@@ -2,9 +2,51 @@ const LuckyDraw = require("../Models/LuckyDraw");
 const LuckyDrawRange = require("../Models/LuckyDrawRange");
 const User = require("../Models/user");
 
+function parseLocalDate(dateStr) {
+  // Accepts formats like "Thu Oct 09 2025 20:25:00 GMT+0530"
+  const date = new Date(dateStr);
+  if (!isNaN(date)) return date;
+
+  // fallback for "YYYY-MM-DDTHH:mm:ss" without timezone
+  return new Date(dateStr.replace(/-/g, "/"));
+}
+
 // --------------------
 // Admin: Set min-max range, eligible users, draw time
 // --------------------
+// exports.setLuckyDrawRange = async (req, res) => {
+//   try {
+//     const { minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
+//     const userId = req.user?._id;
+
+//     if (!minAmount || !maxAmount || minAmount > maxAmount) {
+//       return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+//     }
+//     if (!drawTime) {
+//       return res.status(400).json({ Result: 0, message: "Draw time required" });
+//     }
+
+//     // ✅ Always create a new range (allow multiple ranges)
+//     const newRange = new LuckyDrawRange({
+//       minAmount,
+//       maxAmount,
+//       eligibleUsers,
+//       drawTime: new Date(drawTime),
+//       createdBy: userId,
+//     });
+
+//     await newRange.save();
+
+//     res.status(200).json({
+//       Result: 1,
+//       message: "Lucky draw range created successfully",
+//       Data: newRange,
+//     });
+//   } catch (error) {
+//     console.error("Error creating lucky draw range:", error);
+//     res.status(500).json({ Result: 0, message: "Internal server error" });
+//   }
+// };
 exports.setLuckyDrawRange = async (req, res) => {
   try {
     const { minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
@@ -17,12 +59,11 @@ exports.setLuckyDrawRange = async (req, res) => {
       return res.status(400).json({ Result: 0, message: "Draw time required" });
     }
 
-    // ✅ Always create a new range (allow multiple ranges)
     const newRange = new LuckyDrawRange({
       minAmount,
       maxAmount,
       eligibleUsers,
-      drawTime: new Date(drawTime),
+      drawTime: parseLocalDate(drawTime),
       createdBy: userId,
     });
 
@@ -68,7 +109,7 @@ exports.updateLuckyDrawRange = async (req, res) => {
     luckyDrawRange.minAmount = minAmount;
     luckyDrawRange.maxAmount = maxAmount;
     luckyDrawRange.eligibleUsers = eligibleUsers;
-    luckyDrawRange.drawTime = selectedTime;
+    luckyDrawRange.drawTime = parseLocalDate(drawTime); // ✅ exact local time
     luckyDrawRange.updatedBy = userId;
     luckyDrawRange.updatedAt = new Date();
 
@@ -98,7 +139,6 @@ exports.updateLuckyDrawRange = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
 // --------------------
 // Get current range for admin only
 // --------------------
@@ -109,13 +149,13 @@ exports.getLuckyDrawRange = async (req, res) => {
       .populate("updatedBy", "name")
       .populate("eligibleUsers", "name email"); // ✅ populate eligibleUsers
 
-    if (!range) 
+    if (!range)
       return res.status(404).json({ Result: 0, message: "No range found" });
 
-    res.status(200).json({ 
-      Result: 1, 
-      message: "Lucky draw range fetched", 
-      Data: range 
+    res.status(200).json({
+      Result: 1,
+      message: "Lucky draw range fetched",
+      Data: range
     });
   } catch (error) {
     console.error(error);
