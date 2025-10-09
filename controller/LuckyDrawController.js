@@ -96,6 +96,8 @@ exports.updateLuckyDrawRange = async (req, res) => {
     if (!luckyDrawRange) {
       return res.status(404).json({ Result: 0, message: "Range not found" });
     }
+
+    // console.log("Parsed drawTime:",luckyDrawRange.drawTime);
     // Update fields
     luckyDrawRange.minAmount = minAmount;
     luckyDrawRange.maxAmount = maxAmount;
@@ -103,6 +105,7 @@ exports.updateLuckyDrawRange = async (req, res) => {
     luckyDrawRange.drawTime = drawTime; // ✅ exact local time
     luckyDrawRange.updatedBy = userId;
     luckyDrawRange.updatedAt = new Date();
+    // console.log("Parsed drawTime:",luckyDrawRange.drawTime);
     await luckyDrawRange.save();
 
     // Format drawTime for response
