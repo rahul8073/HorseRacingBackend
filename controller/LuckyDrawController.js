@@ -59,13 +59,6 @@ exports.updateLuckyDrawRange = async (req, res) => {
       return res.status(400).json({ Result: 0, message: "Draw time required" });
     }
 
-    const selectedTime = new Date(drawTime);
-    const now = new Date();
-
-    if (selectedTime <= now) {
-      return res.status(400).json({ Result: 0, message: "Draw time must be in the future" });
-    }
-
     const luckyDrawRange = await LuckyDrawRange.findById(id);
     if (!luckyDrawRange) {
       return res.status(404).json({ Result: 0, message: "Range not found" });
