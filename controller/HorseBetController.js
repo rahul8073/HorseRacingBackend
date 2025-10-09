@@ -804,9 +804,7 @@ exports.DecideRaceResult = async (req, res) => {
     const raceMode = totalBetAmount < totalWinningAmount ? "High" : "Low";
 
     const historyData = validBets.map(bet => {
-      const isWinner = winningBet
-        ? bet._id.toString() === winningBet._id.toString()
-        : bet.horseId.horseNumber === winningHorse.horseNumber;
+      const isWinner = bet.horseId.horseNumber === winningHorse.horseNumber;
       return {
         userId: bet.userId._id,
         horseId: bet.horseId._id,
@@ -819,13 +817,12 @@ exports.DecideRaceResult = async (req, res) => {
         raceDate: new Date(),
       };
     });
+console.log("winning users:",winningUsers);
 
     if (historyData.length > 0) await BetHistory.insertMany(historyData);
 
     // ✅ Step 7: clear only race bets
-    await HorseBet.deleteMany({
-      "horseId.horseNumber": { $gte: 1, $lte: horseLimit },
-    });
+      await HorseBet.deleteMany({});
 
     res.status(200).json({
       message: "Race result decided successfully",
