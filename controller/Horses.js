@@ -60,9 +60,7 @@ exports.GetAllHorses = async (req, res) => {
 // ✅ Get horses with limit (based on horseNumber order)
 exports.GetLimitedHorses = async (req, res) => {
   try {
-    const { limit } = req.params; // URL से params लेना (12 या 22)
-
-    // limit को number में बदलो
+    const { limit } = req.params; 
     const horseLimit = parseInt(limit, 10);
 
     if (isNaN(horseLimit) || horseLimit <= 0) {
