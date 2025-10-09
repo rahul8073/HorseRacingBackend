@@ -234,64 +234,159 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 // --------------------
 // User: Run lucky draw
 // --------------------
+// exports.claimLuckyDraw = async (req, res) => {
+//   try {
+//     const userId = req.user?._id;
+//     if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+//     const range = await LuckyDrawRange.findOne();
+//     if (!range) return res.status(400).json({ message: "Lucky draw range not set" });
+//     console.log("User drawTime:",range);
+    
+//     // Check eligibility
+//     if (!range.eligibleUsers.includes(userId)) {
+//       return res.status(403).json({ message: "You are not eligible for this draw" });
+//     }
+
+//     const now = new Date();
+//     if (now < range.drawTime) {
+//       return res.status(400).json({
+//         message: `Lucky draw will be available at ${range.drawTime.toLocaleString()}`,
+//       });
+//     }
+
+//     // Optional: check if already claimed for this draw time
+//     const lastDraw = await LuckyDraw.findOne({
+//       winnerId: userId,
+//       createdAt: { $gte: range.drawTime },
+//     });
+//     if (lastDraw) {
+//       return res.status(400).json({ message: "Lucky draw already claimed for this round" });
+//     }
+
+//     // Random bonus
+//     const bonusAmount = Math.floor(Math.random() * (range.maxAmount - range.minAmount + 1) + range.minAmount);
+
+//     // Update user
+//     const user = await User.findById(userId);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     user.bonusBalance += bonusAmount;
+//     await user.save();
+
+//     // Save lucky draw record
+//     const luckyDraw = new LuckyDraw({
+//       winnerId: userId,
+//       winnerName: user.name,
+//       bonusAmount,
+//     });
+//     await luckyDraw.save();
+
+//     res.status(200).json({
+//       Result: 1,
+//       message: "Lucky draw success",
+//       bonusAmount,
+//       currentDrawTime: luckyDraw.createdAt,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ Result: 0, message: "Internal server error" });
+//   }
+// };
+
 exports.claimLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-    const range = await LuckyDrawRange.findOne();
-    if (!range) return res.status(400).json({ message: "Lucky draw range not set" });
-
-    // Check eligibility
-    if (!range.eligibleUsers.includes(userId)) {
-      return res.status(403).json({ message: "You are not eligible for this draw" });
+    // 🟢 Fetch all ranges (sorted by drawTime ascending)
+    const ranges = await LuckyDrawRange.find().sort({ drawTime: 1 });
+    if (!ranges.length) {
+      return res.status(400).json({ message: "No lucky draw range set" });
     }
 
     const now = new Date();
-    if (now < range.drawTime) {
+
+    // 🟢 Find the latest range whose draw time has already passed
+    const availableRange = [...ranges]
+      .reverse()
+      .find(r => new Date(r.drawTime) <= now);
+
+    if (!availableRange) {
       return res.status(400).json({
-        message: `Lucky draw will be available at ${range.drawTime.toLocaleString()}`,
+        message: "No active lucky draw yet. Please wait for the draw time.",
       });
     }
 
-    // Optional: check if already claimed for this draw time
-    const lastDraw = await LuckyDraw.findOne({
-      winnerId: userId,
-      createdAt: { $gte: range.drawTime },
-    });
-    if (lastDraw) {
-      return res.status(400).json({ message: "Lucky draw already claimed for this round" });
+    // ✅ Ensure drawTime is valid
+    const drawTime = new Date(availableRange.drawTime);
+    if (isNaN(drawTime.getTime())) {
+      return res.status(400).json({ message: "Invalid draw time in data" });
     }
 
-    // Random bonus
-    const bonusAmount = Math.floor(Math.random() * (range.maxAmount - range.minAmount + 1) + range.minAmount);
+    // ✅ Check eligibility
+    const isEligible = availableRange.eligibleUsers.some(
+      (u) => u.toString() === userId.toString()
+    );
+    if (!isEligible) {
+      return res
+        .status(403)
+        .json({ message: "You are not eligible for this draw" });
+    }
 
-    // Update user
+    // ✅ Check if already claimed for this draw time
+    const alreadyClaimed = await LuckyDraw.findOne({
+      winnerId: userId,
+      createdAt: { $gte: drawTime },
+    });
+
+    if (alreadyClaimed) {
+      return res
+        .status(400)
+        .json({ message: "You already claimed the lucky draw for this round" });
+    }
+
+    // ✅ Random bonus amount between min-max
+    const bonusAmount = Math.floor(
+      Math.random() *
+        (availableRange.maxAmount - availableRange.minAmount + 1) +
+        availableRange.minAmount
+    );
+
+    // ✅ Update user bonus balance
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     user.bonusBalance += bonusAmount;
     await user.save();
 
-    // Save lucky draw record
+    // ✅ Save lucky draw record
     const luckyDraw = new LuckyDraw({
       winnerId: userId,
       winnerName: user.name,
       bonusAmount,
+      rangeId: availableRange._id,
     });
     await luckyDraw.save();
 
     res.status(200).json({
       Result: 1,
-      message: "Lucky draw success",
+      message: "Lucky draw claimed successfully!",
       bonusAmount,
+      drawTime: drawTime,
       currentDrawTime: luckyDraw.createdAt,
     });
   } catch (error) {
-    console.error(error);
+    console.error("LuckyDraw Error:", error);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
+
 
 // --------------------
 // User: Get own history
