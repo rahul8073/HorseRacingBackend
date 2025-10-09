@@ -2,6 +2,23 @@ const LuckyDraw = require("../Models/LuckyDraw");
 const LuckyDrawRange = require("../Models/LuckyDrawRange");
 const User = require("../Models/user");
 
+function toLocalISOString(dateInput) {
+  if (!dateInput) return "";
+
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return "";
+
+  const pad = (num) => String(num).padStart(2, "0");
+
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+}
 
 // --------------------
 // Admin: Set min-max range, eligible users, draw time
@@ -198,9 +215,6 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
       Result: 1,
       message: "Upcoming lucky draw fetched successfully",
       Data: {
-        _id: upcomingDraw._id,
-        minAmount: upcomingDraw.minAmount,
-        maxAmount: upcomingDraw.maxAmount,
         drawTime: drawTimeFormatted, // formatted date & time
         isEligible,
       },
