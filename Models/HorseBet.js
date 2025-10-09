@@ -18,11 +18,10 @@ const horseBetSchema = new mongoose.Schema({
         required: true,
         min: 0
     },
-    // betType: {
-    //     type: String,
-    //     enum: ['win', 'place', 'show'],
-    //     required: true
-    // },
+    horseWin: {
+        type: Number,
+        default: 0
+    },
     betTime: {
         type: Date,
         default: Date.now
