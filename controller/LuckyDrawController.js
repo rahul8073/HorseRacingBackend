@@ -41,7 +41,7 @@ exports.setLuckyDrawRange = async (req, res) => {
 
 
 // --------------------
-// Get current range
+// Get current range for admin only
 // --------------------
 exports.getLuckyDrawRange = async (req, res) => {
   try {
@@ -64,6 +64,47 @@ exports.getLuckyDrawRange = async (req, res) => {
   }
 };
 
+// --------------------
+// User: Get upcoming lucky draw for user
+// --------------------
+exports.getUpcomingLuckyDraw = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ Result: 0, message: "Unauthorized" });
+
+    const now = new Date();
+
+    // Find the next draw that is scheduled in the future
+    const upcomingDraw = await LuckyDrawRange.findOne({ drawTime: { $gte: now } })
+      .populate("eligibleUsers", "name email")
+      .sort({ drawTime: 1 }); // earliest upcoming draw first
+
+    if (!upcomingDraw) {
+      return res.status(404).json({
+        Result: 0,
+        message: "No upcoming lucky draw found",
+      });
+    }
+
+    // Check if user is eligible
+    const isEligible = upcomingDraw.eligibleUsers.some(u => u._id.toString() === userId.toString());
+
+    res.status(200).json({
+      Result: 1,
+      message: "Upcoming lucky draw fetched successfully",
+      Data: {
+        _id: upcomingDraw._id,
+        minAmount: upcomingDraw.minAmount,
+        maxAmount: upcomingDraw.maxAmount,
+        drawTime: upcomingDraw.drawTime,
+        isEligible,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching upcoming lucky draw:", error);
+    res.status(500).json({ Result: 0, message: "Internal server error" });
+  }
+};
 
 // --------------------
 // Delete range
@@ -87,7 +128,7 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 // --------------------
 // User: Run lucky draw
 // --------------------
-exports.userLuckyDraw = async (req, res) => {
+exports.claimLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
