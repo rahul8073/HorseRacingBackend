@@ -39,6 +39,72 @@ exports.setLuckyDrawRange = async (req, res) => {
   }
 };
 
+// --------------------
+// Admin: Update existing lucky draw range
+// --------------------
+exports.updateLuckyDrawRange = async (req, res) => {
+  try {
+    const { id, minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
+    const userId = req.user?._id;
+
+    if (!id) {
+      return res.status(400).json({ Result: 0, message: "Range ID is required" });
+    }
+
+    if (!minAmount || !maxAmount || minAmount > maxAmount) {
+      return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+    }
+
+    if (!drawTime) {
+      return res.status(400).json({ Result: 0, message: "Draw time required" });
+    }
+
+    const selectedTime = new Date(drawTime);
+    const now = new Date();
+
+    if (selectedTime <= now) {
+      return res.status(400).json({ Result: 0, message: "Draw time must be in the future" });
+    }
+
+    const luckyDrawRange = await LuckyDrawRange.findById(id);
+    if (!luckyDrawRange) {
+      return res.status(404).json({ Result: 0, message: "Range not found" });
+    }
+
+    // Update fields
+    luckyDrawRange.minAmount = minAmount;
+    luckyDrawRange.maxAmount = maxAmount;
+    luckyDrawRange.eligibleUsers = eligibleUsers;
+    luckyDrawRange.drawTime = selectedTime;
+    luckyDrawRange.updatedBy = userId;
+    luckyDrawRange.updatedAt = new Date();
+
+    await luckyDrawRange.save();
+
+    // Format drawTime for response
+    const drawTimeFormatted = luckyDrawRange.drawTime.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    res.status(200).json({
+      Result: 1,
+      message: "Lucky draw range updated successfully",
+      Data: {
+        ...luckyDrawRange.toObject(),
+        drawTime: drawTimeFormatted,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating lucky draw range:", error);
+    res.status(500).json({ Result: 0, message: "Internal server error" });
+  }
+};
 
 // --------------------
 // Get current range for admin only
