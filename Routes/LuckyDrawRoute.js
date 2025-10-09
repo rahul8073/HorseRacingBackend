@@ -18,7 +18,7 @@ const router = express.Router();
 // --------------------
 router.post("/setRange", admin, setLuckyDrawRange);
 // Admin can get current range
-router.get("/getLuckyDraw", admin, getLuckyDrawRange);
+router.get("/admin/getLuckyDraw", admin, getLuckyDrawRange);
 router.get("/admin/all-history", admin, getAllLuckyDraws); // all history for admin
 // Admin can delete existing range
 router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);

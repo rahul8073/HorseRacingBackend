@@ -87,7 +87,20 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     }
 
     // Check if user is eligible
-    const isEligible = upcomingDraw.eligibleUsers.some(u => u._id.toString() === userId.toString());
+    const isEligible = upcomingDraw.eligibleUsers.some(
+      u => u._id.toString() === userId.toString()
+    );
+
+    // Format drawTime
+    const drawTimeFormatted = upcomingDraw.drawTime.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
 
     res.status(200).json({
       Result: 1,
@@ -96,7 +109,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
         _id: upcomingDraw._id,
         minAmount: upcomingDraw.minAmount,
         maxAmount: upcomingDraw.maxAmount,
-        drawTime: upcomingDraw.drawTime,
+        drawTime: drawTimeFormatted, // formatted date & time
         isEligible,
       },
     });
@@ -105,6 +118,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
 
 // --------------------
 // Delete range
