@@ -2,14 +2,6 @@ const LuckyDraw = require("../Models/LuckyDraw");
 const LuckyDrawRange = require("../Models/LuckyDrawRange");
 const User = require("../Models/user");
 
-function parseLocalDate(dateStr) {
-  // Accepts formats like "Thu Oct 09 2025 20:25:00 GMT+0530"
-  const date = new Date(dateStr);
-  if (!isNaN(date)) return date;
-
-  // fallback for "YYYY-MM-DDTHH:mm:ss" without timezone
-  return new Date(dateStr.replace(/-/g, "/"));
-}
 
 // --------------------
 // Admin: Set min-max range, eligible users, draw time
@@ -63,7 +55,7 @@ exports.setLuckyDrawRange = async (req, res) => {
       minAmount,
       maxAmount,
       eligibleUsers,
-      drawTime: parseLocalDate(drawTime),
+      drawTime:drawTime,
       createdBy: userId,
     });
 
@@ -104,15 +96,13 @@ exports.updateLuckyDrawRange = async (req, res) => {
     if (!luckyDrawRange) {
       return res.status(404).json({ Result: 0, message: "Range not found" });
     }
-
     // Update fields
     luckyDrawRange.minAmount = minAmount;
     luckyDrawRange.maxAmount = maxAmount;
     luckyDrawRange.eligibleUsers = eligibleUsers;
-    luckyDrawRange.drawTime = parseLocalDate(drawTime); // ✅ exact local time
+    luckyDrawRange.drawTime = drawTime; // ✅ exact local time
     luckyDrawRange.updatedBy = userId;
     luckyDrawRange.updatedAt = new Date();
-
     await luckyDrawRange.save();
 
     // Format drawTime for response
