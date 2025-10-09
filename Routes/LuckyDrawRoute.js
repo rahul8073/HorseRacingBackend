@@ -16,18 +16,18 @@ const router = express.Router();
 // --------------------
 // Admin routes
 // --------------------
-router.post("/setRange", auth, admin, setLuckyDrawRange);
+router.post("/setRange", admin, setLuckyDrawRange);
 // Admin can get current range
 router.get("/getLuckyDraw", admin, getLuckyDrawRange);
-router.get("/admin/all-history", auth, admin, getAllLuckyDraws); // all history for admin
+router.get("/admin/all-history", admin, getAllLuckyDraws); // all history for admin
 // Admin can delete existing range
-router.get("/deleteRange/:id", auth, admin, deleteLuckyDrawRange);
+router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);
 
 // --------------------
 // User routes
 // --------------------
 router.get("/user/claimLuckyDraw", auth, claimLuckyDraw); // run lucky draw (24hrs check)
 router.get("/user/history", auth, getUserLuckyDrawHistory); // user lucky draw history
-router.get("/user/getUpComingLuckyDraw", admin, getUpcomingLuckyDraw);
+router.get("/user/getUpComingLuckyDraw", auth, getUpcomingLuckyDraw);
 
 module.exports = router;
