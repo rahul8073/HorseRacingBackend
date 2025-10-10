@@ -1125,7 +1125,7 @@ exports.AdminSetWinHorse = async (req, res) => {
   try {
     const { horseNumber } = req.body;
 
-    if (!horseNumber) {
+    if (horseNumber<0) {
       return res.status(400).json({ message: "Valid horseNumber is required" });
     }
 
