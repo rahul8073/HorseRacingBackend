@@ -1125,7 +1125,7 @@ exports.AdminSetWinHorse = async (req, res) => {
   try {
     const { horseNumber } = req.body;
 
-    if (!horseNumber || horseNumber <= 0) {
+    if (!horseNumber || horseNumber < 0) {
       return res.status(400).json({ message: "Valid horseNumber is required" });
     }
 
@@ -1137,7 +1137,7 @@ exports.AdminSetWinHorse = async (req, res) => {
     );
 
     res.status(200).json({
-      message: `Admin has set horse number ${horseNumber} as the winning horse.`,
+      message: `Admin has set horse number ${horseNumber>0?horseNumber:"Auto"} as the winning horse.`,
       winRecord,
     });
   } catch (error) {
