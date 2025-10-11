@@ -9,6 +9,7 @@ const Horses = require('./Routes/Horses');
 const PaymentRoutes = require('./Routes/PaymentRoutes');
 const UserManagementroute = require('./Routes/userManagementRoute');
 const LuckyDrawroute = require('./Routes/LuckyDrawRoute');
+const raceTimerRoute = require('./Routes/RaceTimerRoute')
 const app=express();
 
 app.use(express.json());
@@ -20,6 +21,7 @@ app.use('/',Horses)
 app.use('/',PaymentRoutes)
 app.use('/',UserManagementroute)
 app.use('/',LuckyDrawroute)
+app.use('/', raceTimerRoute);
 const server=http.createServer(app);
 
 
