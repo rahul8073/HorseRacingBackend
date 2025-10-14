@@ -4,10 +4,10 @@ const User = require("../Models/user");
 const Transaction = require("../Models/transaction");
 const WithdrawalRequest = require("../Models/WithdrawRequest");
 
-// const razorpayInstance = new Razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID,
-//   key_secret: process.env.RAZORPAY_KEY_SECRET,
-// });
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 // --------------------- USER DEPOSIT VIA RAZORPAY ---------------------
 const createRazorpayOrder = async (req, res) => {
