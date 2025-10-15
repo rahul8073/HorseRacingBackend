@@ -325,10 +325,7 @@ const createRazorpayOrder = async (req, res) => {
     });
 
     // ✅ Build dynamic checkout URL
-    const baseUrl =
-      process.env.NODE_ENV === "production"
-        ? process.env.SERVER_URL || "https://your-domain.com"
-        : `http://localhost:${process.env.PORT || 5000}`;
+ const baseUrl = `${req.protocol}://${req.get("host")}`;
 
     const checkoutUrl = `${baseUrl}/razorpay/checkout.html?order_id=${order.id}&amount=${order.amount}&key=${process.env.RAZORPAY_KEY_ID}`;
 
