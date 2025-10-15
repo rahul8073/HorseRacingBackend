@@ -68,7 +68,7 @@ if (!fs.existsSync(checkoutFile)) {
               window.location.href = "unity://payment_success";
               }
               else{
-                window.location.href = "unity://payment_success";
+                window.location.href = "unity://payment_failed";
                 }
               // window.close();
             })
