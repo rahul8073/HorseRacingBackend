@@ -106,7 +106,10 @@ mongoose
 
 // ✅ Start server
 const PORT = process.env.port;
- const baseUrl = `${req.protocol}://${req.get("host")}`;
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.SERVER_URL
+    : `http://localhost:${PORT}`;
 
 const server = http.createServer(app);
-server.listen(PORT, () => console.log(`🚀 Server running on ${baseUrl}`));
+server.listen(PORT, () => console.log(`🚀 Server running on ${BASE_URL}`));
