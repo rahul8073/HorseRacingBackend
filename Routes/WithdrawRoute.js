@@ -1,0 +1,10 @@
+const express = require("express");
+const router = express.Router();
+const auth = require("../middleware/middleware");
+const admin = require("../middleware/Admin");
+const { updateWithdrawalStatus, getAllWithdrawalRequests, createWithdrawalRequest, getUserWithdrawals } = require("../controller/WithdrawController");
+router.post("/withdraw", auth, createWithdrawalRequest);
+router.get("/user/Withdrawals", auth, getUserWithdrawals);
+router.post("/updateWithdraw/:id", admin, updateWithdrawalStatus);
+router.get("/withdrawals", admin, getAllWithdrawalRequests);
+module.exports = router;

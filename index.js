@@ -14,6 +14,7 @@ const PaymentRoutes = require("./Routes/PaymentRoutes");
 const UserManagementroute = require("./Routes/userManagementRoute");
 const LuckyDrawroute = require("./Routes/LuckyDrawRoute");
 const raceTimerRoute = require("./Routes/RaceTimerRoute");
+const withdrawRoute = require("./Routes/WithdrawRoute");
 
 const app = express();
 
@@ -94,6 +95,7 @@ app.use("/", Authrouter);
 app.use("/", HorseBetRoute);
 app.use("/", Horses);
 app.use("/", PaymentRoutes);
+app.use("/", withdrawRoute);
 app.use("/", UserManagementroute);
 app.use("/", LuckyDrawroute);
 app.use("/", raceTimerRoute);

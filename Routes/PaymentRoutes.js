@@ -41,9 +41,6 @@ const {
 router.post("/razorpay/order",auth, createRazorpayOrder);
 router.post("/razorpay/verify", verifyRazorpayPayment);
 router.post("/manual", admin, manualTransaction);
-router.post("/withdraw", auth, requestWithdrawal);
-router.put("/withdraw/:withdrawalId", admin, updateWithdrawalStatus);
-router.get("/withdrawals", admin, getAllWithdrawalRequests);
 router.get("/transactions", admin, getAllTransactions);
 router.get("/transactions/:userId", auth, getUserTransactions);
 

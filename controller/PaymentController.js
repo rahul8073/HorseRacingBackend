@@ -432,127 +432,6 @@ const manualTransaction = async (req, res) => {
   }
 };
 
-// --------------------- USER WITHDRAW REQUEST ---------------------
-const requestWithdrawal = async (req, res) => {
-  try {
-    const { amount, method, accountDetails } = req.body;
-    const userId = req.user.id;
-
-    if (!amount || !method || !accountDetails)
-      return res.status(400).json({ message: "All fields required" });
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (user.walletBalance < amount)
-      return res.status(400).json({ message: "Insufficient wallet balance" });
-
-    const withdrawal = new WithdrawalRequest({
-      userId,
-      amount,
-      method,
-      accountDetails,
-      status: "pending",
-    });
-
-    await withdrawal.save();
-    res
-      .status(201)
-      .json({ message: "Withdrawal request submitted", withdrawal });
-  } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "Error creating withdrawal request",
-        error: error.message,
-      });
-  }
-};
-
-// --------------------- ADMIN APPROVE / REJECT WITHDRAW ---------------------
-const updateWithdrawalStatus = async (req, res) => {
-  try {
-    const { withdrawalId } = req.params;
-    const { status } = req.body; // approved / rejected
-    const adminId = req.user._id;
-
-    const withdrawal = await WithdrawalRequest.findById(withdrawalId);
-    if (!withdrawal)
-      return res.status(404).json({ message: "Withdrawal request not found" });
-
-    const user = await User.findById(withdrawal.userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    if (status === "approved") {
-      if (user.walletBalance < withdrawal.amount)
-        return res.status(400).json({ message: "Insufficient wallet balance" });
-
-      // Deduct wallet
-      user.walletBalance -= withdrawal.amount;
-      await user.save();
-
-      withdrawal.status = "approved";
-      withdrawal.processedBy = adminId;
-      withdrawal.processedAt = new Date();
-      await withdrawal.save();
-
-      await Transaction.create({
-        userId: user._id,
-        type: "withdraw",
-        amount: withdrawal.amount,
-        status: "success",
-        gateway: withdrawal.method,
-        referenceId: `WITHDRAW-${Date.now()}`,
-      });
-
-      res
-        .status(200)
-        .json({ message: "Withdrawal approved successfully", withdrawal });
-    } else if (status === "rejected") {
-      withdrawal.status = "rejected";
-      withdrawal.processedBy = adminId;
-      withdrawal.processedAt = new Date();
-      await withdrawal.save();
-
-      res
-        .status(200)
-        .json({ message: "Withdrawal rejected successfully", withdrawal });
-    } else {
-      res.status(400).json({ message: "Invalid status" });
-    }
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating withdrawal", error: error.message });
-  }
-};
-
-// --------------------- ADMIN: GET ALL WITHDRAWALS ---------------------
-const getAllWithdrawalRequests = async (req, res) => {
-  try {
-    const { status, startDate, endDate, userId } = req.query;
-    let filter = {};
-
-    if (status) filter.status = status;
-    if (userId) filter.userId = userId;
-    if (startDate || endDate) filter.createdAt = {};
-    if (startDate) filter.createdAt.$gte = new Date(startDate);
-    if (endDate) filter.createdAt.$lte = new Date(endDate);
-
-    const withdrawals = await WithdrawalRequest.find(filter)
-      .populate("userId", "name email walletBalance")
-      .sort({ createdAt: -1 });
-
-    res
-      .status(200)
-      .json({ message: "Withdrawals fetched successfully", withdrawals });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error fetching withdrawals", error: error.message });
-  }
-};
-
 // --------------------- ADMIN: GET ALL TRANSACTIONS ---------------------
 const getAllTransactions = async (req, res) => {
   try {
@@ -615,9 +494,6 @@ module.exports = {
   createRazorpayOrder,
   verifyRazorpayPayment,
   manualTransaction,
-  requestWithdrawal,
-  updateWithdrawalStatus,
-  getAllWithdrawalRequests,
   getAllTransactions,
   getUserTransactions,
 };
