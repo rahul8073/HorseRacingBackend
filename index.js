@@ -100,15 +100,12 @@ app.use("/", raceTimerRoute);
 
 // ✅ MongoDB connection
 mongoose
-  .connect(process.env.MONGODB_URL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.mongodb_url)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ✅ Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 const BASE_URL =
   process.env.NODE_ENV === "production"
     ? process.env.SERVER_URL
