@@ -273,7 +273,6 @@
 //   }
 // };
 
-
 // module.exports = {
 //   createRazorpayOrder,
 //   verifyRazorpayPayment,
@@ -285,14 +284,6 @@
 //   getUserTransactions,
 
 // };
-
-
-
-
-
-
-
-
 
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
@@ -356,11 +347,15 @@ const createRazorpayOrder = async (req, res) => {
   }
 };
 
-
 // --------------------- RAZORPAY PAYMENT VERIFICATION ---------------------
 const verifyRazorpayPayment = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = req.body;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      userId,
+    } = req.body;
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
@@ -372,12 +367,15 @@ const verifyRazorpayPayment = async (req, res) => {
       return res.status(400).json({ message: "Invalid signature" });
     }
 
-    const transaction = await Transaction.findOne({ referenceId: razorpay_order_id });
-    if (!transaction) return res.status(404).json({ message: "Transaction not found" });
+    const transaction = await Transaction.findOne({
+      referenceId: razorpay_order_id,
+    });
+    if (!transaction)
+      return res.status(404).json({ message: "Transaction not found" });
 
     transaction.status = "success";
-    console.log(transaction.status,"changed");
-    
+    console.log(transaction.status, "changed");
+
     transaction.referenceId = razorpay_payment_id;
     await transaction.save();
 
@@ -386,10 +384,18 @@ const verifyRazorpayPayment = async (req, res) => {
 
     user.walletBalance += transaction.amount;
     await user.save();
-
-    res.status(200).json({ message: "Payment verified successfully", walletBalance: user.walletBalance });
+    return res.status(200).json({
+      success: true,
+      message: "Payment verified and wallet updated successfully",
+      walletBalance: user.walletBalance,
+      transactionId: transaction._id,
+      razorpay_payment_id,
+    });
+    // res.status(200).json({ message: "Payment verified successfully", walletBalance: user.walletBalance });
   } catch (error) {
-    res.status(500).json({ message: "Error verifying payment", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error verifying payment", error: error.message });
   }
 };
 
@@ -420,7 +426,12 @@ const manualTransaction = async (req, res) => {
 
     res.status(200).json({ message: "Manual transaction successful", user });
   } catch (error) {
-    res.status(500).json({ message: "Error adding manual transaction", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Error adding manual transaction",
+        error: error.message,
+      });
   }
 };
 
@@ -448,9 +459,16 @@ const requestWithdrawal = async (req, res) => {
     });
 
     await withdrawal.save();
-    res.status(201).json({ message: "Withdrawal request submitted", withdrawal });
+    res
+      .status(201)
+      .json({ message: "Withdrawal request submitted", withdrawal });
   } catch (error) {
-    res.status(500).json({ message: "Error creating withdrawal request", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Error creating withdrawal request",
+        error: error.message,
+      });
   }
 };
 
@@ -462,7 +480,8 @@ const updateWithdrawalStatus = async (req, res) => {
     const adminId = req.user._id;
 
     const withdrawal = await WithdrawalRequest.findById(withdrawalId);
-    if (!withdrawal) return res.status(404).json({ message: "Withdrawal request not found" });
+    if (!withdrawal)
+      return res.status(404).json({ message: "Withdrawal request not found" });
 
     const user = await User.findById(withdrawal.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -489,19 +508,25 @@ const updateWithdrawalStatus = async (req, res) => {
         referenceId: `WITHDRAW-${Date.now()}`,
       });
 
-      res.status(200).json({ message: "Withdrawal approved successfully", withdrawal });
+      res
+        .status(200)
+        .json({ message: "Withdrawal approved successfully", withdrawal });
     } else if (status === "rejected") {
       withdrawal.status = "rejected";
       withdrawal.processedBy = adminId;
       withdrawal.processedAt = new Date();
       await withdrawal.save();
 
-      res.status(200).json({ message: "Withdrawal rejected successfully", withdrawal });
+      res
+        .status(200)
+        .json({ message: "Withdrawal rejected successfully", withdrawal });
     } else {
       res.status(400).json({ message: "Invalid status" });
     }
   } catch (error) {
-    res.status(500).json({ message: "Error updating withdrawal", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error updating withdrawal", error: error.message });
   }
 };
 
@@ -521,9 +546,13 @@ const getAllWithdrawalRequests = async (req, res) => {
       .populate("userId", "name email walletBalance")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ message: "Withdrawals fetched successfully", withdrawals });
+    res
+      .status(200)
+      .json({ message: "Withdrawals fetched successfully", withdrawals });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching withdrawals", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching withdrawals", error: error.message });
   }
 };
 
@@ -541,9 +570,13 @@ const getAllTransactions = async (req, res) => {
       .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ message: "Transactions fetched successfully", transactions });
+    res
+      .status(200)
+      .json({ message: "Transactions fetched successfully", transactions });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching transactions", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching transactions", error: error.message });
   }
 };
 
@@ -565,9 +598,19 @@ const getUserTransactions = async (req, res) => {
       .populate("userId", "name email")
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ message: "User transactions fetched successfully", transactions });
+    res
+      .status(200)
+      .json({
+        message: "User transactions fetched successfully",
+        transactions,
+      });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching user transactions", error: error.message });
+    res
+      .status(500)
+      .json({
+        message: "Error fetching user transactions",
+        error: error.message,
+      });
   }
 };
 
