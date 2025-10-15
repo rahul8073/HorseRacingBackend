@@ -105,7 +105,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ✅ Start server
-const PORT = process.env.PORT;
+const PORT = process.env.port;
 const BASE_URL =
   process.env.NODE_ENV === "production"
     ? process.env.SERVER_URL
