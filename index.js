@@ -64,12 +64,17 @@ if (!fs.existsSync(checkoutFile)) {
           })
             .then(res => res.json())
             .then(data => {
-              alert("✅ Payment successful! Wallet updated.");
-              window.close();
+              if (data.success){
+              window.location.href = "unity://payment_success";
+              }
+              else{
+                window.location.href = "unity://payment_success";
+                }
+              // window.close();
             })
             .catch(err => {
                 console.log(err)
-                alert("❌ Verification failed")});
+                // alert("❌ Verification failed")});
         },
         prefill: {
           name: userName
