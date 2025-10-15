@@ -16,6 +16,7 @@ const withdrawalRequestSchema = new mongoose.Schema(
       default: "pending",
     },
     processedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // admin
+    processedAt: { type:Date },
   },
   { timestamps: true }
 );

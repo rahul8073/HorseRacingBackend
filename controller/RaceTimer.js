@@ -36,7 +36,7 @@ const WAIT_SECONDS = 60;       // frontend waiting
           config.phase = "raceStart";
           countdown = GAME_START_SECONDS;
           await config.save();
-          console.log("🔁 Phase switched to: raceStart");
+          // console.log("🔁 Phase switched to: raceStart");
         } else if (config.phase === "raceStart") {
           config.phase = "waiting";
           countdown = WAIT_SECONDS;
@@ -44,7 +44,7 @@ const WAIT_SECONDS = 60;       // frontend waiting
           console.log("🔁 Phase switched to: waiting");
         }
       }
-      console.log("Count",countdown);
+      // console.log("Count",countdown);
       
     }, 1000);
 
