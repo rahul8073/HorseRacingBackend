@@ -189,9 +189,10 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
       .sort({ drawTime: 1 }); // earliest upcoming draw first
 
     if (!upcomingDraw) {
-      return res.status(404).json({
+      return res.status(200).json({
         Result: 0,
         message: "No upcoming lucky draw found",
+        Data:{}
       });
     }
 
@@ -199,7 +200,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     const isEligible = upcomingDraw.eligibleUsers.some(
       u => u._id.toString() === userId.toString()
     );
-
+    
     // Format drawTime
     const drawTimeFormatted = upcomingDraw.drawTime.toLocaleString("en-IN", {
       day: "2-digit",
@@ -215,7 +216,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
       Result: 1,
       message: "Upcoming lucky draw fetched successfully",
       Data: {
-        drawTime: drawTimeFormatted, // formatted date & time
+        drawTime: toLocalISOString(upcomingDraw.drawTime), // formatted date & time
         isEligible,
       },
     });
@@ -347,7 +348,7 @@ exports.claimLuckyDraw = async (req, res) => {
     if (!isEligible) {
       return res
         .status(403)
-        .json({ message: "You are not eligible for this draw" });
+        .json({ Result:0,message: "You are not eligible for this draw" });
     }
 
     // ✅ Check if already claimed for this draw time
@@ -359,7 +360,7 @@ exports.claimLuckyDraw = async (req, res) => {
     if (alreadyClaimed) {
       return res
         .status(400)
-        .json({ message: "You already claimed the lucky draw for this round" });
+        .json({ Result:0, message: "You already claimed the lucky draw for this round" });
     }
 
     // ✅ Random bonus amount between min-max
@@ -372,7 +373,7 @@ exports.claimLuckyDraw = async (req, res) => {
     // ✅ Update user bonus balance
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(400).json({ message: "User not found" });
     }
 
     user.bonusBalance += bonusAmount;
@@ -391,7 +392,7 @@ exports.claimLuckyDraw = async (req, res) => {
       Result: 1,
       message: "Lucky draw claimed successfully!",
       bonusAmount,
-      drawTime: drawTime,
+      drawTime: toLocalISOString(drawTime),
       currentDrawTime: luckyDraw.createdAt,
     });
   } catch (error) {
