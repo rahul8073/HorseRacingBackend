@@ -325,9 +325,14 @@ const createRazorpayOrder = async (req, res) => {
     });
 
     // ✅ Build dynamic checkout URL
- const baseUrl = `${req.protocol}://${req.get("host")}`;
+//  const baseUrl = `${req.protocol}://${req.get("host")}`;
+ const PORT = process.env.port;
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.SERVER_URL
+    : `http://localhost:${PORT}`;
 
-    const checkoutUrl = `${baseUrl}/razorpay/checkout.html?order_id=${order.id}&amount=${order.amount}&key=${process.env.RAZORPAY_KEY_ID}`;
+    const checkoutUrl = `${BASE_URL}/razorpay/checkout.html?order_id=${order.id}&amount=${order.amount}&key=${process.env.RAZORPAY_KEY_ID}`;
 
     // ✅ Send both
     res.status(200).json({
