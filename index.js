@@ -62,19 +62,30 @@ if (!fs.existsSync(checkoutFile)) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(response)
           })
-            .then(res => res.json())
-            .then(data => {
-              if (data.success){
-              window.location.href = "unity://payment_success";
+          .then(res => res.json())
+          .then(data => {
+            if (data.success){
+              if (window.Unity) {
+                Unity.call("success");
+              } else {
+                alert("✅ Payment successful! Wallet updated.");
               }
-              else{
-                window.location.href = "unity://payment_failed";
-                }
-              // window.close();
-            })
-            .catch(err => {
-                console.log(err)
-                // alert("❌ Verification failed")});
+            } else {
+              if (window.Unity) {
+                Unity.call("failure");
+              } else {
+                alert("❌ Payment failed.");
+              }
+            }
+          })
+          .catch(err => {
+              console.log(err);
+              if (window.Unity) {
+                Unity.call("failure");
+              } else {
+                alert("❌ Verification failed");
+              }
+          });
         },
         prefill: {
           name: userName
@@ -87,6 +98,7 @@ if (!fs.existsSync(checkoutFile)) {
   </script>
 </body>
 </html>
+
   `;
   fs.writeFileSync(checkoutFile, htmlContent, "utf8");
   console.log("✅ Auto-created checkout.html");
