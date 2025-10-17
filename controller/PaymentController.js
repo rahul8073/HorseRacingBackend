@@ -309,7 +309,7 @@ const createRazorpayOrder = async (req, res) => {
 
     // ✅ Create order on Razorpay
     const order = await razorpayInstance.orders.create({
-      amount: amount * 100, // in paise
+      amount: amount , // in paise
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
     });
