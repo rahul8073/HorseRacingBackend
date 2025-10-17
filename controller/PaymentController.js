@@ -309,7 +309,7 @@ const createRazorpayOrder = async (req, res) => {
 
     // ✅ Create order on Razorpay
     const order = await razorpayInstance.orders.create({
-      amount: amount , // in paise
+      amount: amount*100 , // in paise
       currency: "INR",
       receipt: `rcpt_${Date.now()}`,
     });
@@ -318,7 +318,7 @@ const createRazorpayOrder = async (req, res) => {
     await Transaction.create({
       userId,
       type: "deposit",
-      amount,
+      amount:amount/100,
       status: "pending",
       gateway: "razorpay",
       referenceId: order.id,
