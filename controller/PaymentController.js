@@ -318,7 +318,7 @@ const createRazorpayOrder = async (req, res) => {
     await Transaction.create({
       userId,
       type: "deposit",
-      amount:amount/100,
+      amount,
       status: "pending",
       gateway: "razorpay",
       referenceId: order.id,
