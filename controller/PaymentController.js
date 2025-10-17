@@ -350,42 +350,87 @@ const BASE_URL =
 };
 
 // --------------------- RAZORPAY PAYMENT VERIFICATION ---------------------
+// const verifyRazorpayPayment = async (req, res) => {
+//   try {
+//     const {
+//       razorpay_order_id,
+//       razorpay_payment_id,
+//       razorpay_signature,
+//       userId,
+//     } = req.body;
+
+//     const body = razorpay_order_id + "|" + razorpay_payment_id;
+//     const expectedSignature = crypto
+//       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+//       .update(body.toString())
+//       .digest("hex");
+
+//     if (expectedSignature !== razorpay_signature) {
+//       return res.status(400).json({ message: "Invalid signature" });
+//     }
+
+//     const transaction = await Transaction.findOne({
+//       referenceId: razorpay_order_id,
+//     });
+//     if (!transaction)
+//       return res.status(404).json({ message: "Transaction not found" });
+
+//     transaction.status = "success";
+//     console.log(transaction.status, "changed");
+
+//     transaction.referenceId = razorpay_payment_id;
+//     await transaction.save();
+
+//     const user = await User.findById(transaction.userId || userId);
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     user.walletBalance += transaction.amount;
+//     await user.save();
+//     return res.status(200).json({
+//       success: true,
+//       message: "Payment verified and wallet updated successfully",
+//       walletBalance: user.walletBalance,
+//       transactionId: transaction._id,
+//       razorpay_payment_id,
+//     });
+//     // res.status(200).json({ message: "Payment verified successfully", walletBalance: user.walletBalance });
+//   } catch (error) {
+//     res
+//       .status(500)
+//       .json({ message: "Error verifying payment", error: error.message });
+//   }
+// };
+
 const verifyRazorpayPayment = async (req, res) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      userId,
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id } = req.body;
 
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body.toString())
-      .digest("hex");
+    // Get userId from middleware (assumes middleware sets req.user)
+    const userId = req.user._id; // req.user populated by auth middleware
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    if (expectedSignature !== razorpay_signature) {
-      return res.status(400).json({ message: "Invalid signature" });
-    }
-
+    // Find the transaction
     const transaction = await Transaction.findOne({
       referenceId: razorpay_order_id,
     });
     if (!transaction)
       return res.status(404).json({ message: "Transaction not found" });
 
+    // Update transaction status
     transaction.status = "success";
     console.log(transaction.status, "changed");
 
+    // Update referenceId to payment id
     transaction.referenceId = razorpay_payment_id;
     await transaction.save();
 
+    // Update user's wallet
     const user = await User.findById(transaction.userId || userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.walletBalance += transaction.amount;
     await user.save();
+
     return res.status(200).json({
       success: true,
       message: "Payment verified and wallet updated successfully",
@@ -393,13 +438,11 @@ const verifyRazorpayPayment = async (req, res) => {
       transactionId: transaction._id,
       razorpay_payment_id,
     });
-    // res.status(200).json({ message: "Payment verified successfully", walletBalance: user.walletBalance });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error verifying payment", error: error.message });
+    res.status(500).json({ message: "Error verifying payment", error: error.message });
   }
 };
+
 
 // --------------------- MANUAL TRANSACTION (ADMIN) ---------------------
 const manualTransaction = async (req, res) => {
