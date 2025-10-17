@@ -30,16 +30,13 @@ const {
   createRazorpayOrder,
   verifyRazorpayPayment,
   manualTransaction,
-  requestWithdrawal,
-  updateWithdrawalStatus,
-  getAllWithdrawalRequests,
   getAllTransactions,
   getUserTransactions,
 } = require("../controller/PaymentController");
 // const { authMiddleware, adminMiddleware } = require("../Middleware/authMiddleware");
 
 router.post("/razorpay/order",auth, createRazorpayOrder);
-router.post("/razorpay/verify", verifyRazorpayPayment);
+router.post("/razorpay/verify",auth, verifyRazorpayPayment);
 router.post("/manual", admin, manualTransaction);
 router.get("/transactions", admin, getAllTransactions);
 router.get("/transactions/:userId", auth, getUserTransactions);
