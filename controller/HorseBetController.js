@@ -404,7 +404,9 @@ exports.GetHorseTotalBet = async (req, res) => {
       // Add totalWinningAmount per horse
       {
         $addFields: {
-          totalWinningAmount: { $multiply: ["$totalBetAmount", payoutMultiplier] },
+          totalWinningAmount: {
+            $multiply: ["$totalBetAmount", payoutMultiplier],
+          },
         },
       },
 
@@ -436,10 +438,6 @@ exports.GetHorseTotalBet = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
-
-
 
 exports.BetHistory = async (req, res) => {
   try {
@@ -940,6 +938,187 @@ exports.GetAllBets = async (req, res) => {
 //   }
 // };
 
+// 2nd rule change
+// exports.DecideRaceResult = async (req, res) => {
+//   try {
+//     const { totalHorses } = req.params; // 12 or 22
+
+//     // Step 1: validate param
+//     if (!["12", "22"].includes(totalHorses)) {
+//       return res.status(400).json({
+//         message: "Invalid totalHorses param, only 12 or 22 allowed",
+//       });
+//     }
+
+//     const horseLimit = parseInt(totalHorses, 10);
+//     const payoutMultiplier = horseLimit === 12 ? 10 : 20;
+
+//     // Step 2: get all horses for this race
+//     let allHorses = await Horses.find({}, "_id horseName horseNumber");
+//     allHorses = allHorses
+//       .filter((h) => h.horseNumber >= 1 && h.horseNumber <= horseLimit)
+//       .sort((a, b) => a.horseNumber - b.horseNumber);
+
+//     if (allHorses.length !== horseLimit) {
+//       return res.status(400).json({
+//         message: `Race requires ${horseLimit} horses, found ${allHorses.length}`,
+//       });
+//     }
+
+//     // Step 2.5: get latest winning number
+//     const winRecord = await HorseWin.findOne().sort({ createdAt: -1 });
+//     let winningNumber = winRecord?.horseNumberToWin || 0;
+
+//     // Step 3: fetch bets for this race
+//     const allBets = await HorseBet.find()
+//       .populate("horseId", "_id horseNumber horseName")
+//       .populate("userId", "_id name walletBalance bonusBalance");
+
+//     const validBets = allBets.filter(
+//       (bet) =>
+//         bet.horseId &&
+//         bet.userId &&
+//         bet.horseId.horseNumber >= 1 &&
+//         bet.horseId.horseNumber <= horseLimit
+//     );
+
+//     let winningHorse = null;
+//     let winningBet = null;
+
+//     // Step 4: determine winner
+//     if (winningNumber > 0) {
+//       // Use winning number from HorseWin
+//       winningHorse = allHorses.find((h) => h.horseNumber === winningNumber);
+//       if (!winningHorse) {
+//         return res
+//           .status(400)
+//           .json({ message: "Winning horse number invalid" });
+//       }
+//       // Reset winning number for next race
+//       winRecord.horseNumberToWin = 0;
+//       await winRecord.save();
+//     } else {
+//       // Existing logic if no winningNumber set
+//       const horsesWithBets = new Set(
+//         validBets.map((bet) => bet.horseId.horseNumber)
+//       );
+//       const horsesWithoutBets = allHorses.filter(
+//         (h) => !horsesWithBets.has(h.horseNumber)
+//       );
+
+//       if (horsesWithBets.size === 0) {
+//         winningHorse = allHorses[Math.floor(Math.random() * allHorses.length)];
+//       } else if (horsesWithBets.size === 1) {
+//         if (horsesWithoutBets.length > 0) {
+//           winningHorse =
+//             horsesWithoutBets[
+//               Math.floor(Math.random() * horsesWithoutBets.length)
+//             ];
+//         } else {
+//           const sameHorseBets = validBets.filter(
+//             (bet) => bet.horseId.horseNumber === [...horsesWithBets][0]
+//           );
+//           winningBet = sameHorseBets.reduce(
+//             (min, bet) => (!min || bet.Amount < min.Amount ? bet : min),
+//             null
+//           );
+//           winningHorse = winningBet.horseId;
+//         }
+//       } else {
+//         winningBet = validBets.reduce(
+//           (min, bet) => (!min || bet.Amount < min.Amount ? bet : min),
+//           null
+//         );
+//         winningHorse = winningBet.horseId;
+//       }
+//     }
+
+//     // Step 5: distribute payouts and update user wallets
+//     const winningUsers = [];
+//     for (const bet of validBets) {
+//       let isWinner = false;
+//       if (winningBet) {
+//         isWinner = bet._id.toString() === winningBet._id.toString();
+//       } else {
+//         isWinner = bet.horseId.horseNumber === winningHorse.horseNumber;
+//       }
+
+//       if (isWinner) {
+//         const winningAmount = bet.Amount * payoutMultiplier;
+//         winningUsers.push({
+//           userId: bet.userId._id,
+//           name: bet.userId.name,
+//           betAmount: bet.Amount,
+//           winningAmount,
+//         });
+
+//         const user = await User.findById(bet.userId._id);
+//         if (user) {
+//           user.walletBalance += winningAmount;
+//           await user.save();
+//         }
+//       }
+//     }
+
+//     // Step 6: save bet history
+//     let totalBetAmount = 0;
+//     let totalWinningAmount = 0;
+
+//     for (const bet of validBets) {
+//       totalBetAmount += bet.Amount;
+//       let winAmount = 0;
+//       if (winningBet && bet._id.toString() === winningBet._id.toString()) {
+//         winAmount = bet.Amount * payoutMultiplier;
+//       } else if (
+//         !winningBet &&
+//         bet.horseId.horseNumber === winningHorse.horseNumber
+//       ) {
+//         winAmount = bet.Amount * payoutMultiplier;
+//       }
+//       totalWinningAmount += winAmount;
+//     }
+
+//     const raceMode = totalBetAmount < totalWinningAmount ? "High" : "Low";
+
+//     const historyData = validBets.map((bet) => {
+//       const isWinner = bet.horseId.horseNumber === winningHorse.horseNumber;
+//       return {
+//         userId: bet.userId._id,
+//         horseId: bet.horseId._id,
+//         horseNumber: bet.horseId.horseNumber,
+//         horseName: bet.horseId.horseName,
+//         betAmount: bet.Amount,
+//         winningAmount: isWinner ? bet.Amount * payoutMultiplier : 0,
+//         status: isWinner ? "won" : "lost",
+//         mode: raceMode,
+//         raceDate: new Date(),
+//       };
+//     });
+
+//     if (historyData.length > 0) {
+//       await BetHistory.insertMany(historyData);
+//     }
+
+//     // Step 7: clear all race bets
+//     await HorseBet.deleteMany({});
+
+//     res.status(200).json({
+//       message: "Race result decided successfully",
+//       totalHorses: horseLimit,
+//       payoutMultiplier,
+//       winner: {
+//         horseId: winningHorse._id,
+//         horseNumber: winningHorse.horseNumber,
+//         horseName: winningHorse.horseName,
+//         users: winningUsers,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error deciding race result:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 exports.DecideRaceResult = async (req, res) => {
   try {
     const { totalHorses } = req.params; // 12 or 22
@@ -1008,14 +1187,17 @@ exports.DecideRaceResult = async (req, res) => {
       );
 
       if (horsesWithBets.size === 0) {
+        // No bets placed, pick any random horse
         winningHorse = allHorses[Math.floor(Math.random() * allHorses.length)];
       } else if (horsesWithBets.size === 1) {
+        // Only one horse has bets
         if (horsesWithoutBets.length > 0) {
           winningHorse =
             horsesWithoutBets[
               Math.floor(Math.random() * horsesWithoutBets.length)
             ];
         } else {
+          // Only one horse and everyone bet on it, pick smallest bet
           const sameHorseBets = validBets.filter(
             (bet) => bet.horseId.horseNumber === [...horsesWithBets][0]
           );
@@ -1026,38 +1208,66 @@ exports.DecideRaceResult = async (req, res) => {
           winningHorse = winningBet.horseId;
         }
       } else {
+        // Multiple horses with bets, pick smallest bet among all
         winningBet = validBets.reduce(
           (min, bet) => (!min || bet.Amount < min.Amount ? bet : min),
           null
         );
         winningHorse = winningBet.horseId;
       }
+
+      // Ensure total winning payout <= total bet amount
+      let totalBetAmount = validBets.reduce((sum, b) => sum + b.Amount, 0);
+      let totalWinningAmount = validBets
+        .filter((b) => b.horseId.horseNumber === winningHorse.horseNumber)
+        .reduce((sum, b) => sum + b.Amount * payoutMultiplier, 0);
+      // console.log(
+      //   "Before adjustment - Total Bet:",
+      //   totalBetAmount,
+      //   "Total Win:",
+      //   totalWinningAmount
+      // );
+      if (totalWinningAmount > totalBetAmount) {
+        // console.log("Adjusting winning horse to limit payouts");
+        // Try to pick horse with no bets first
+        if (horsesWithoutBets.length > 0) {
+          winningHorse =
+            horsesWithoutBets[
+              Math.floor(Math.random() * horsesWithoutBets.length)
+            ];
+        } else {
+          // Pick horse with smallest total bet to reduce payout
+          const horseTotals = allHorses.map((h) => {
+            const totalBetOnHorse = validBets
+              .filter((b) => b.horseId.horseNumber === h.horseNumber)
+              .reduce((sum, b) => sum + b.Amount, 0);
+            return { horse: h, totalBetOnHorse };
+          });
+          horseTotals.sort((a, b) => a.totalBetOnHorse - b.totalBetOnHorse);
+          winningHorse = horseTotals[0].horse;
+        }
+      }
     }
 
     // Step 5: distribute payouts and update user wallets
     const winningUsers = [];
-    for (const bet of validBets) {
-      let isWinner = false;
-      if (winningBet) {
-        isWinner = bet._id.toString() === winningBet._id.toString();
-      } else {
-        isWinner = bet.horseId.horseNumber === winningHorse.horseNumber;
-      }
+    const betsOnWinningHorse = validBets.filter(
+      (b) => b.horseId.horseNumber === winningHorse.horseNumber
+    );
 
-      if (isWinner) {
-        const winningAmount = bet.Amount * payoutMultiplier;
-        winningUsers.push({
-          userId: bet.userId._id,
-          name: bet.userId.name,
-          betAmount: bet.Amount,
-          winningAmount,
-        });
+    for (const bet of betsOnWinningHorse) {
+      const winningAmount = bet.Amount * payoutMultiplier;
+      winningUsers.push({
+        userId: bet.userId._id,
+        name: bet.userId.name,
+        betAmount: bet.Amount,
+        winningAmount,
+      });
 
-        const user = await User.findById(bet.userId._id);
-        if (user) {
-          user.walletBalance += winningAmount;
-          await user.save();
-        }
+      const user = await User.findById(bet.userId._id);
+      if (user) {
+        user.walletBalance += winningAmount;
+        await user.save();
       }
     }
 
@@ -1068,12 +1278,7 @@ exports.DecideRaceResult = async (req, res) => {
     for (const bet of validBets) {
       totalBetAmount += bet.Amount;
       let winAmount = 0;
-      if (winningBet && bet._id.toString() === winningBet._id.toString()) {
-        winAmount = bet.Amount * payoutMultiplier;
-      } else if (
-        !winningBet &&
-        bet.horseId.horseNumber === winningHorse.horseNumber
-      ) {
+      if (bet.horseId.horseNumber === winningHorse.horseNumber) {
         winAmount = bet.Amount * payoutMultiplier;
       }
       totalWinningAmount += winAmount;
@@ -1111,7 +1316,7 @@ exports.DecideRaceResult = async (req, res) => {
         horseId: winningHorse._id,
         horseNumber: winningHorse.horseNumber,
         horseName: winningHorse.horseName,
-        users: winningUsers,
+        users: winningUsers, // will be empty if no one bet
       },
     });
   } catch (error) {
@@ -1120,12 +1325,14 @@ exports.DecideRaceResult = async (req, res) => {
   }
 };
 
-// Admin sets a winning horse number for the race
+
+
+
 exports.AdminSetWinHorse = async (req, res) => {
   try {
     const { horseNumber } = req.body;
 
-    if (horseNumber<0) {
+    if (horseNumber < 0) {
       return res.status(400).json({ message: "Valid horseNumber is required" });
     }
 
@@ -1137,7 +1344,9 @@ exports.AdminSetWinHorse = async (req, res) => {
     );
 
     res.status(200).json({
-      message: `Admin has set horse number ${horseNumber>0?horseNumber:"Auto"} as the winning horse.`,
+      message: `Admin has set horse number ${
+        horseNumber > 0 ? horseNumber : "Auto"
+      } as the winning horse.`,
       winRecord,
     });
   } catch (error) {
