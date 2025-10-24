@@ -5,7 +5,6 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   phoneNo: {
     type: String,
-    required: true,
     unique: true,
     sparse: true,
     match: [/^\d{10}$/, "Please enter a valid 10-digit phone number"]
