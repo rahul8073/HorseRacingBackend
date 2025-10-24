@@ -15,12 +15,13 @@ const UserManagementroute = require("./Routes/userManagementRoute");
 const LuckyDrawroute = require("./Routes/LuckyDrawRoute");
 const raceTimerRoute = require("./Routes/RaceTimerRoute");
 const withdrawRoute = require("./Routes/WithdrawRoute");
+const apkRoutes = require("./Routes/APKRoutes");
 
 const app = express();
 
 app.use(express.json());
 app.use(cors());
-
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // ✅ Ensure checkout.html exists
 const razorpayDir = path.join(__dirname, "public", "razorpay");
 const checkoutFile = path.join(razorpayDir, "checkout.html");
@@ -116,6 +117,7 @@ app.use("/", withdrawRoute);
 app.use("/", UserManagementroute);
 app.use("/", LuckyDrawroute);
 app.use("/", raceTimerRoute);
+app.use("/", apkRoutes);
 
 // ✅ MongoDB connection
 mongoose
