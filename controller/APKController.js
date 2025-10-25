@@ -10,8 +10,12 @@ const uploadApk = async (req, res) => {
     const { versionName, versionCode, changeLog } = req.body;
     if (!versionName || !versionCode)
       return res.status(400).json({ message: "versionName and versionCode are required" });
-
-    const fileUrl = `${req.protocol}://${req.get("host")}/uploads/apk/${req.file.filename}`;
+const PORT = process.env.port;
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.SERVER_URL
+    : `http://localhost:${PORT}`;
+    const fileUrl = `${BASE_URL}/uploads/apk/${req.file.filename}`;
 
     const apk = new ApkUpload({
       versionName,
