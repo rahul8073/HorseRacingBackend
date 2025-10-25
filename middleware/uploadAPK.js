@@ -1,26 +1,21 @@
-// middleware/uploadApk.js
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
-// store locally in /uploads/apk
+const uploadDir = path.join(__dirname, "../uploads/apk");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/apk");
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${file.fieldname}${ext}`);
   },
 });
 
-const apkUpload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    if (path.extname(file.originalname) !== ".apk") {
-      return cb(new Error("Only .apk files are allowed"));
-    }
-    cb(null, true);
-  },
-});
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === "application/vnd.android.package-archive") cb(null, true);
+  else cb(new Error("Only APK files are allowed"), false);
+};
 
-module.exports = apkUpload;
+module.exports = multer({ storage, fileFilter });

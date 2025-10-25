@@ -7,8 +7,8 @@ const router=express.Router();
 router.post('/register',register)
 router.post('/login',login)
 router.post('/logout',auth,admin,logout)
-router.put("/updateProfile", auth,admin, changePassword);
-router.get("/profile", auth,admin, getProfile);
-router.put("/updateProfile", auth,admin, updateProfile);
+router.post("/admin/changePassword", auth,admin, changePassword);
+router.get("/admin/profile", auth,admin, getProfile);
+router.post("/admin/updateProfile", auth,admin, updateProfile);
 
 module.exports=router;

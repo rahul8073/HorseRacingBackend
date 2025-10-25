@@ -7,22 +7,24 @@ const path = require("path");
 const fs = require("fs");
 
 // ✅ Import routes
-const Authrouter = require("./Routes/authRoute");
+const AuthRouter = require("./Routes/authRoute");
 const HorseBetRoute = require("./Routes/HorseBetRoute");
-const Horses = require("./Routes/Horses");
+const HorsesRoute = require("./Routes/Horses");
 const PaymentRoutes = require("./Routes/PaymentRoutes");
-const UserManagementroute = require("./Routes/userManagementRoute");
-const LuckyDrawroute = require("./Routes/LuckyDrawRoute");
-const raceTimerRoute = require("./Routes/RaceTimerRoute");
-const withdrawRoute = require("./Routes/WithdrawRoute");
-const apkRoutes = require("./Routes/APKRoutes");
+const UserManagementRoute = require("./Routes/userManagementRoute");
+const LuckyDrawRoute = require("./Routes/LuckyDrawRoute");
+const RaceTimerRoute = require("./Routes/RaceTimerRoute");
+const WithdrawRoute = require("./Routes/WithdrawRoute");
+const ApkRoutes = require("./Routes/APKRoutes");
 
 const app = express();
 
+// Middleware
 app.use(express.json());
 app.use(cors());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-// ✅ Ensure checkout.html exists
+
+// ✅ Ensure Razorpay checkout page exists
 const razorpayDir = path.join(__dirname, "public", "razorpay");
 const checkoutFile = path.join(razorpayDir, "checkout.html");
 
@@ -66,31 +68,20 @@ if (!fs.existsSync(checkoutFile)) {
           .then(res => res.json())
           .then(data => {
             if (data.success){
-              if (window.Unity) {
-                Unity.call("success");
-              } else {
-                alert("✅ Payment successful! Wallet updated.");
-              }
+              if (window.Unity) Unity.call("success");
+              else alert("✅ Payment successful! Wallet updated.");
             } else {
-              if (window.Unity) {
-                Unity.call("failure");
-              } else {
-                alert("❌ Payment failed.");
-              }
+              if (window.Unity) Unity.call("failure");
+              else alert("❌ Payment failed.");
             }
           })
           .catch(err => {
-              console.log(err);
-              if (window.Unity) {
-                Unity.call("failure");
-              } else {
-                alert("❌ Verification failed");
-              }
+            console.log(err);
+            if (window.Unity) Unity.call("failure");
+            else alert("❌ Verification failed");
           });
         },
-        prefill: {
-          name: userName
-        },
+        prefill: { name: userName },
         theme: { color: "#3399cc" }
       };
       const rzp = new Razorpay(options);
@@ -99,25 +90,24 @@ if (!fs.existsSync(checkoutFile)) {
   </script>
 </body>
 </html>
-
   `;
   fs.writeFileSync(checkoutFile, htmlContent, "utf8");
-  console.log("✅ Auto-created checkout.html");
+  console.log("✅ Razorpay checkout.html auto-created");
 }
 
 // ✅ Serve Razorpay page
 app.use("/razorpay", express.static(razorpayDir));
 
 // ✅ Routes
-app.use("/", Authrouter);
+app.use("/", AuthRouter);
 app.use("/", HorseBetRoute);
-app.use("/", Horses);
+app.use("/", HorsesRoute);
 app.use("/", PaymentRoutes);
-app.use("/", withdrawRoute);
-app.use("/", UserManagementroute);
-app.use("/", LuckyDrawroute);
-app.use("/", raceTimerRoute);
-app.use("/", apkRoutes);
+app.use("/", WithdrawRoute);
+app.use("/", UserManagementRoute);
+app.use("/", LuckyDrawRoute);
+app.use("/", RaceTimerRoute);
+app.use("/", ApkRoutes);
 
 // ✅ MongoDB connection
 mongoose
@@ -126,7 +116,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 // ✅ Start server
-const PORT = process.env.port;
+const PORT = process.env.port || 5000;
 const BASE_URL =
   process.env.NODE_ENV === "production"
     ? process.env.SERVER_URL
