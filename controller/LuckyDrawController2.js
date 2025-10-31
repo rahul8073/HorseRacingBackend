@@ -95,20 +95,26 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 // --------------------
 // ADMIN: Get All Lucky Draw Ranges
 // --------------------
-exports.getAllLuckyDrawRanges = async (req, res) => {
+exports.getLuckyDrawRange = async (req, res) => {
   try {
-    const ranges = await LuckyDrawRange.find().sort({ createdAt: -1 });
+    const range = await LuckyDrawRange.find()
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .populate("eligibleUsers", "name email"); // ✅ populate eligibleUsers
+
+    if (!range)
+      return res.status(404).json({ Result: 0, message: "No range found" });
+
     res.status(200).json({
       Result: 1,
-      message: "All Lucky Draw Ranges fetched successfully",
-      Data: ranges,
+      message: "Lucky draw range fetched",
+      Data: range
     });
-  } catch (err) {
-    console.error("Error fetching LuckyDrawRanges:", err);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
 // --------------------
 // ADMIN: Get All Lucky Draws History
 // --------------------
