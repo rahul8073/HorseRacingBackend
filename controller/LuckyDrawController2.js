@@ -253,27 +253,67 @@ exports.getUserLuckyDrawHistory = async (req, res) => {
 exports.getUpcomingLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
+    const userRole = req.user?.role || "user"; // e.g., "admin" or "user"
+
     if (!userId)
       return res.status(401).json({ Result: 0, message: "Unauthorized user" });
 
-    // Check last claim for this user
-    const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({ createdAt: -1 });
+    // 🧩 If ADMIN → show all upcoming lucky draws
+    if (userRole === "admin") {
+      const upcomingDraws = await LuckyDrawRange.find().sort({ drawTime: 1 });
+      if (!upcomingDraws.length)
+        return res
+          .status(200)
+          .json({ Result: 0, message: "No upcoming draws found" });
 
-    if (lastClaim && lastClaim.nextClaimTime) {
       return res.status(200).json({
         Result: 1,
-        message: "Next eligible claim time fetched successfully",
-        Data: {
-          drawTime: toLocalISOString(lastClaim.nextClaimTime),
-        },
+        message: "All upcoming lucky draws fetched successfully",
+        Data: upcomingDraws.map((draw) => ({
+          drawTime: toLocalISOString(draw.drawTime),
+          minAmount: draw.minAmount,
+          maxAmount: draw.maxAmount,
+        })),
       });
     }
 
-    // If no previous claim, show latest global draw range
-    const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
-    if (!latestRange)
-      return res.status(200).json({ Result: 0, message: "No upcoming draws found" });
+    // 🧩 If NORMAL USER → check last claim
+    const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({
+      createdAt: -1,
+    });
 
+    // If user already claimed and has next eligible time
+    if (lastClaim && lastClaim.nextClaimTime) {
+      const now = new Date();
+
+      // Still waiting for next eligibility
+      if (lastClaim.nextClaimTime > now) {
+        return res.status(200).json({
+          Result: 1,
+          message: "Next eligible claim time fetched successfully",
+          Data: {
+            drawTime: toLocalISOString(lastClaim.nextClaimTime),
+            isEligible: false,
+          },
+        });
+      }
+    }
+
+    // If user never claimed OR now eligible for next draw
+    const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
+
+    if (!latestRange)
+      return res
+        .status(200)
+        .json({ Result: 0, message: "No upcoming draws found" });
+
+    const now = new Date();
+    if (latestRange.drawTime <= now)
+      return res
+        .status(200)
+        .json({ Result: 0, message: "User not eligible for any lucky draw" });
+
+    // ✅ User eligible for next draw
     res.status(200).json({
       Result: 1,
       message: "Upcoming Lucky Draw fetched successfully",
@@ -281,6 +321,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
         drawTime: toLocalISOString(latestRange.drawTime),
         minAmount: latestRange.minAmount,
         maxAmount: latestRange.maxAmount,
+        isEligible: true,
       },
     });
   } catch (err) {
@@ -288,4 +329,6 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
+
 

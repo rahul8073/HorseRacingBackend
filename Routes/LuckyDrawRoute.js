@@ -30,7 +30,7 @@ router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);
 // --------------------
 router.get("/user/claimLuckyDraw", auth, claimLuckyDraw); // run lucky draw (24hrs check)
 router.get("/user/history", auth, getUserLuckyDrawHistory); // user lucky draw history
-router.get("/user/getUpComingLuckyDraw", auth, getUpcomingLuckyDraw);
+router.get("/user/getUpComingLuckyDraw", admin,auth, getUpcomingLuckyDraw);
 
 module.exports = router;
 
