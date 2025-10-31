@@ -18,9 +18,12 @@ function toLocalISOString(dateInput) {
 // --------------------
 exports.setLuckyDrawRange = async (req, res) => {
   try {
+    const adminId = req.admin?._id || req.user?._id; // ✅ from admin middleware
     const { minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
+
     if (!minAmount || !maxAmount || minAmount > maxAmount)
       return res.status(400).json({ Result: 0, message: "Invalid min or max amount" });
+
     if (!drawTime)
       return res.status(400).json({ Result: 0, message: "Draw time required" });
 
@@ -29,7 +32,9 @@ exports.setLuckyDrawRange = async (req, res) => {
       maxAmount,
       eligibleUsers,
       drawTime: new Date(drawTime),
+      createdBy: adminId, // ✅ track creator
     });
+
     await newRange.save();
 
     res.status(200).json({
@@ -48,8 +53,11 @@ exports.setLuckyDrawRange = async (req, res) => {
 // --------------------
 exports.updateLuckyDrawRange = async (req, res) => {
   try {
+    const adminId = req.admin?._id || req.user?._id;
     const { id, minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
-    if (!id) return res.status(400).json({ Result: 0, message: "Range ID required" });
+
+    if (!id)
+      return res.status(400).json({ Result: 0, message: "Range ID required" });
 
     const range = await LuckyDrawRange.findById(id);
     if (!range)
@@ -59,6 +67,9 @@ exports.updateLuckyDrawRange = async (req, res) => {
     range.maxAmount = maxAmount ?? range.maxAmount;
     range.eligibleUsers = eligibleUsers ?? range.eligibleUsers;
     range.drawTime = drawTime ? new Date(drawTime) : range.drawTime;
+    range.updatedBy = adminId; // ✅ track updater
+    range.updatedAt = new Date();
+
     await range.save();
 
     res.status(200).json({
@@ -78,14 +89,19 @@ exports.updateLuckyDrawRange = async (req, res) => {
 exports.deleteLuckyDrawRange = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ Result: 0, message: "Range ID required" });
+    if (!id)
+      return res.status(400).json({ Result: 0, message: "Range ID required" });
 
     const range = await LuckyDrawRange.findById(id);
     if (!range)
       return res.status(404).json({ Result: 0, message: "Range not found" });
 
     await LuckyDrawRange.findByIdAndDelete(id);
-    res.status(200).json({ Result: 1, message: "Lucky Draw Range deleted successfully" });
+
+    res.status(200).json({
+      Result: 1,
+      message: "Lucky Draw Range deleted successfully",
+    });
   } catch (err) {
     console.error("Error deleting LuckyDrawRange:", err);
     res.status(500).json({ Result: 0, message: "Internal server error" });
@@ -98,9 +114,9 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 exports.getLuckyDrawRange = async (req, res) => {
   try {
     const range = await LuckyDrawRange.find()
-      .populate("createdBy", "name")
-      .populate("updatedBy", "name")
-      .populate("eligibleUsers", "name email"); // ✅ populate eligibleUsers
+      .populate("createdBy", "name email")
+      .populate("updatedBy", "name email")
+      .populate("eligibleUsers", "name email");
 
     if (!range)
       return res.status(404).json({ Result: 0, message: "No range found" });
@@ -108,13 +124,14 @@ exports.getLuckyDrawRange = async (req, res) => {
     res.status(200).json({
       Result: 1,
       message: "Lucky draw range fetched",
-      Data: range
+      Data: range,
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
 // --------------------
 // ADMIN: Get All Lucky Draws History
 // --------------------
@@ -142,12 +159,10 @@ exports.claimLuckyDraw = async (req, res) => {
     if (!userId)
       return res.status(401).json({ Result: 0, message: "Unauthorized user" });
 
-    // Get latest range
     const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
     if (!latestRange)
       return res.status(400).json({ Result: 0, message: "No active draw range found" });
 
-    // Check last claim (24-hour rule)
     const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({ createdAt: -1 });
     if (lastClaim) {
       const hoursDiff = (new Date() - lastClaim.createdAt) / (1000 * 60 * 60);
@@ -158,23 +173,20 @@ exports.claimLuckyDraw = async (req, res) => {
         });
     }
 
-    // Generate random bonus amount
     const bonusAmount =
       Math.floor(
-        Math.random() *
-          (latestRange.maxAmount - latestRange.minAmount + 1)
+        Math.random() * (latestRange.maxAmount - latestRange.minAmount + 1)
       ) + latestRange.minAmount;
 
-    // Save claim
     const claim = new LuckyDrawClaim({
       userId,
       userName,
       bonusAmount,
       drawRangeId: latestRange._id,
+      nextClaimTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // ✅ FIXED
     });
     await claim.save();
 
-    // Save result to LuckyDraw (winner record)
     const drawRecord = new LuckyDraw({
       winnerId: userId,
       winnerName: userName,
@@ -193,6 +205,7 @@ exports.claimLuckyDraw = async (req, res) => {
   }
 };
 
+
 // --------------------
 // USER: Get User Lucky Draw History
 // --------------------
@@ -200,6 +213,7 @@ exports.getUserLuckyDrawHistory = async (req, res) => {
   try {
     const userId = req.user?._id;
     const history = await LuckyDrawClaim.find({ userId }).sort({ createdAt: -1 });
+
     res.status(200).json({
       Result: 1,
       message: "User Lucky Draw history fetched successfully",
@@ -216,18 +230,35 @@ exports.getUserLuckyDrawHistory = async (req, res) => {
 // --------------------
 exports.getUpcomingLuckyDraw = async (req, res) => {
   try {
-    const now = new Date();
-    const upcoming = await LuckyDrawRange.findOne({ drawTime: { $gte: now } }).sort({ drawTime: 1 });
-    if (!upcoming)
+    const userId = req.user?._id;
+    if (!userId)
+      return res.status(401).json({ Result: 0, message: "Unauthorized user" });
+
+    // Check last claim for this user
+    const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({ createdAt: -1 });
+
+    if (lastClaim && lastClaim.nextClaimTime) {
+      return res.status(200).json({
+        Result: 1,
+        message: "Next eligible claim time fetched successfully",
+        Data: {
+          drawTime: toLocalISOString(lastClaim.nextClaimTime),
+        },
+      });
+    }
+
+    // If no previous claim, show latest global draw range
+    const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
+    if (!latestRange)
       return res.status(200).json({ Result: 0, message: "No upcoming draws found" });
 
     res.status(200).json({
       Result: 1,
       message: "Upcoming Lucky Draw fetched successfully",
       Data: {
-        drawTime: toLocalISOString(upcoming.drawTime),
-        minAmount: upcoming.minAmount,
-        maxAmount: upcoming.maxAmount,
+        drawTime: toLocalISOString(latestRange.drawTime),
+        minAmount: latestRange.minAmount,
+        maxAmount: latestRange.maxAmount,
       },
     });
   } catch (err) {
