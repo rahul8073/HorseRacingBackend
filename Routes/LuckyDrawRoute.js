@@ -9,7 +9,8 @@ const {
   claimLuckyDraw,
   getUpcomingLuckyDraw,
   updateLuckyDrawRange,
-} = require("../controller/LuckyDrawController");
+  getAllLuckyDrawRanges,
+} = require("../controller/LuckyDrawController2");
 const auth = require("../middleware/middleware"); // user authentication
 const admin = require("../middleware/Admin"); // admin check
 const router = express.Router();
@@ -20,7 +21,7 @@ const router = express.Router();
 router.post("/setRange", admin, setLuckyDrawRange);
 router.post("/updateRange", admin, updateLuckyDrawRange);
 // Admin can get current range
-router.get("/admin/getLuckyDraw", admin, getLuckyDrawRange);
+router.get("/admin/getLuckyDraw", admin, getAllLuckyDrawRanges);
 router.get("/admin/all-history", admin, getAllLuckyDraws); // all history for admin
 // Admin can delete existing range
 router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);
