@@ -1,6 +1,7 @@
 const LuckyDrawRange = require("../Models/LuckyDrawRange");
 const LuckyDraw = require("../Models/LuckyDraw");
 const LuckyDrawClaim = require("../Models/LuckyDrawClaim");
+const user = require("../Models/user");
 
 // --------------------
 // Helper function
@@ -10,7 +11,11 @@ function toLocalISOString(dateInput) {
   const date = new Date(dateInput);
   if (isNaN(date.getTime())) return "";
   const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.000Z`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate()
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(
+    date.getSeconds()
+  )}.000Z`;
 }
 
 // --------------------
@@ -22,7 +27,9 @@ exports.setLuckyDrawRange = async (req, res) => {
     const userId = req.user?._id;
 
     if (!minAmount || !maxAmount || minAmount > maxAmount) {
-      return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+      return res
+        .status(400)
+        .json({ Result: 0, message: "Invalid min-max range" });
     }
     if (!drawTime) {
       return res.status(400).json({ Result: 0, message: "Draw time required" });
@@ -32,7 +39,7 @@ exports.setLuckyDrawRange = async (req, res) => {
       minAmount,
       maxAmount,
       eligibleUsers,
-      drawTime:drawTime,
+      drawTime: drawTime,
       createdBy: userId,
     });
 
@@ -60,11 +67,15 @@ exports.updateLuckyDrawRange = async (req, res) => {
     const userId = req.user?._id;
 
     if (!id) {
-      return res.status(400).json({ Result: 0, message: "Range ID is required" });
+      return res
+        .status(400)
+        .json({ Result: 0, message: "Range ID is required" });
     }
 
     if (!minAmount || !maxAmount || minAmount > maxAmount) {
-      return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+      return res
+        .status(400)
+        .json({ Result: 0, message: "Invalid min-max range" });
     }
 
     if (!drawTime) {
@@ -86,12 +97,14 @@ exports.updateLuckyDrawRange = async (req, res) => {
     luckyDrawRange.updatedAt = new Date();
     // console.log("Parsed drawTime:",luckyDrawRange.drawTime);
     await luckyDrawRange.save();
-   if (eligibleUsers && Array.isArray(eligibleUsers)) {
+    if (eligibleUsers && Array.isArray(eligibleUsers)) {
       const removedClaims = await LuckyDrawClaim.deleteMany({
         userId: { $nin: eligibleUsers },
       });
 
-      console.log(`🧹 ${removedClaims.deletedCount} claim(s) removed for ineligible users`);
+      console.log(
+        `🧹 ${removedClaims.deletedCount} claim(s) removed for ineligible users`
+      );
     }
     // Format drawTime for response
     const drawTimeFormatted = luckyDrawRange.drawTime.toLocaleString("en-IN", {
@@ -147,7 +160,6 @@ exports.deleteLuckyDrawRange = async (req, res) => {
   }
 };
 
-
 // --------------------
 // ADMIN: Get All Lucky Draw Ranges
 // --------------------
@@ -164,7 +176,7 @@ exports.getLuckyDrawRange = async (req, res) => {
     res.status(200).json({
       Result: 1,
       message: "Lucky draw range fetched",
-      Data: range
+      Data: range,
     });
   } catch (error) {
     console.error(error);
@@ -200,15 +212,21 @@ exports.claimLuckyDraw = async (req, res) => {
 
     const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
     if (!latestRange)
-      return res.status(400).json({ Result: 0, message: "No active draw range found" });
+      return res
+        .status(400)
+        .json({ Result: 0, message: "No active draw range found" });
 
-    const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({ createdAt: -1 });
+    const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({
+      createdAt: -1,
+    });
     if (lastClaim) {
       const hoursDiff = (new Date() - lastClaim.createdAt) / (1000 * 60 * 60);
       if (hoursDiff < 24)
         return res.status(400).json({
           Result: 0,
-          message: `You can claim again after ${Math.ceil(24 - hoursDiff)} hours.`,
+          message: `You can claim again after ${Math.ceil(
+            24 - hoursDiff
+          )} hours.`,
         });
     }
 
@@ -216,12 +234,15 @@ exports.claimLuckyDraw = async (req, res) => {
       Math.floor(
         Math.random() * (latestRange.maxAmount - latestRange.minAmount + 1)
       ) + latestRange.minAmount;
+    const user = await user.findById(userId);
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
 
+    user.bonusBalance += bonusAmount;
+    await user.save();
     const claim = new LuckyDrawClaim({
       userId,
-      userName,
-      bonusAmount,
-      drawRangeId: latestRange._id,
       nextClaimTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // ✅ FIXED
     });
     await claim.save();
@@ -244,14 +265,15 @@ exports.claimLuckyDraw = async (req, res) => {
   }
 };
 
-
 // --------------------
 // USER: Get User Lucky Draw History
 // --------------------
 exports.getUserLuckyDrawHistory = async (req, res) => {
   try {
     const userId = req.user?._id;
-    const history = await LuckyDrawClaim.find({ userId }).sort({ createdAt: -1 });
+    const history = await LuckyDrawClaim.find({ userId }).sort({
+      createdAt: -1,
+    });
 
     res.status(200).json({
       Result: 1,
@@ -308,7 +330,6 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
       createdAt: -1,
     });
 
-
     // ✅ Case 1: User never claimed before → eligible
     if (!lastClaim) {
       console.log("✅ No last claim found → User eligible for first draw");
@@ -324,14 +345,14 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
 
     // ✅ Case 2: User has claimed before → check nextClaimTime
     if (lastClaim.nextClaimTime) {
-        return res.status(200).json({
-          Result: 1,
-          message: "User eligible for upcoming lucky draw",
-          Data: {
-            drawTime: toLocalISOString(lastClaim.nextClaimTime),
-            isEligible: true,
-          },
-        });
+      return res.status(200).json({
+        Result: 1,
+        message: "User eligible for upcoming lucky draw",
+        Data: {
+          drawTime: toLocalISOString(lastClaim.nextClaimTime),
+          isEligible: true,
+        },
+      });
     }
 
     // 🟢 Fallback → eligible
@@ -349,11 +370,3 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
-
-
-
-
-
-
-

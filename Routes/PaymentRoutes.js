@@ -37,7 +37,7 @@ const {
 
 router.post("/razorpay/order",auth, createRazorpayOrder);
 router.post("/razorpay/verify",auth, verifyRazorpayPayment);
-router.post("/manual", admin, manualTransaction);
+router.post("/manual-transaction", admin, manualTransaction);
 router.get("/transactions", admin, getAllTransactions);
 router.get("/transactions/:userId", auth, getUserTransactions);
 
