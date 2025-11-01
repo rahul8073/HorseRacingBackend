@@ -20,7 +20,7 @@ const router = express.Router();
 router.post("/setRange", admin, setLuckyDrawRange);
 router.post("/updateRange", admin, updateLuckyDrawRange);
 // Admin can get current range
-router.get("/admin/getLuckyDraw", admin, getLuckyDrawRange);
+router.get("/admin/getLuckyDraw", admin,auth, getLuckyDrawRange);
 router.get("/admin/all-history", admin, getAllLuckyDraws); // all history for admin
 // Admin can delete existing range
 router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);
@@ -30,7 +30,7 @@ router.get("/deleteRange/:id", admin, deleteLuckyDrawRange);
 // --------------------
 router.get("/user/claimLuckyDraw", auth, claimLuckyDraw); // run lucky draw (24hrs check)
 router.get("/user/history", auth, getUserLuckyDrawHistory); // user lucky draw history
-router.get("/user/getUpComingLuckyDraw", admin,auth, getUpcomingLuckyDraw);
+router.get("/user/getUpComingLuckyDraw",auth, getUpcomingLuckyDraw);
 
 module.exports = router;
 

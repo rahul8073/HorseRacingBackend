@@ -113,47 +113,24 @@ exports.deleteLuckyDrawRange = async (req, res) => {
 // --------------------
 exports.getLuckyDrawRange = async (req, res) => {
   try {
-    const userId = req.user?._id; // assuming JWT middleware sets req.user
-
     const range = await LuckyDrawRange.find()
-      .populate("createdBy", "name email")
-      .populate("updatedBy", "name email")
-      .populate("eligibleUsers", "name email");
+      .populate("createdBy", "name")
+      .populate("updatedBy", "name")
+      .populate("eligibleUsers", "name email"); // ✅ populate eligibleUsers
 
-    if (!range || range.length === 0) {
-      return res.status(404).json({
-        Result: 0,
-        message: "No range found",
-      });
-    }
+    if (!range)
+      return res.status(404).json({ Result: 0, message: "No range found" });
 
-    // ✅ Check if user is eligible for at least one range
-    const eligibleRange = range.find((r) =>
-      r.eligibleUsers.some((u) => u._id.toString() === userId.toString())
-    );
-
-    if (!eligibleRange) {
-      return res.status(403).json({
-        Result: 0,
-        message: "User not eligible for any lucky draw",
-      });
-    }
-
-    // ✅ Return eligible range(s)
     res.status(200).json({
       Result: 1,
       message: "Lucky draw range fetched",
-      Data: eligibleRange,
+      Data: range
     });
   } catch (error) {
-    console.error("Error in getLuckyDrawRange:", error);
-    res.status(500).json({
-      Result: 0,
-      message: "Internal server error",
-    });
+    console.error(error);
+    res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
 // --------------------
 // ADMIN: Get All Lucky Draws History
 // --------------------
@@ -253,40 +230,20 @@ exports.getUserLuckyDrawHistory = async (req, res) => {
 exports.getUpcomingLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
-    const userRole = req.user?.role || "user"; // e.g., "admin" or "user"
+    const userRole = req.user?.role;
+    console.log("role:", userRole);
 
     if (!userId)
       return res.status(401).json({ Result: 0, message: "Unauthorized user" });
 
-    // 🧩 If ADMIN → show all upcoming lucky draws
-    if (userRole === "admin") {
-      const upcomingDraws = await LuckyDrawRange.find().sort({ drawTime: 1 });
-      if (!upcomingDraws.length)
-        return res
-          .status(200)
-          .json({ Result: 0, message: "No upcoming draws found" });
-
-      return res.status(200).json({
-        Result: 1,
-        message: "All upcoming lucky draws fetched successfully",
-        Data: upcomingDraws.map((draw) => ({
-          drawTime: toLocalISOString(draw.drawTime),
-          minAmount: draw.minAmount,
-          maxAmount: draw.maxAmount,
-        })),
-      });
-    }
-
-    // 🧩 If NORMAL USER → check last claim
+    // 🙋‍♂️ NORMAL USER → show only their own upcoming eligible draw
     const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({
       createdAt: -1,
     });
 
-    // If user already claimed and has next eligible time
+    // If user has a next eligible time in future
     if (lastClaim && lastClaim.nextClaimTime) {
       const now = new Date();
-
-      // Still waiting for next eligibility
       if (lastClaim.nextClaimTime > now) {
         return res.status(200).json({
           Result: 1,
@@ -299,7 +256,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
       }
     }
 
-    // If user never claimed OR now eligible for next draw
+    // User is eligible or never claimed before
     const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
 
     if (!latestRange)
@@ -329,6 +286,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
 
 
 
