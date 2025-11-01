@@ -51,6 +51,9 @@ exports.setLuckyDrawRange = async (req, res) => {
 // --------------------
 // ADMIN: Update Lucky Draw Range
 // --------------------
+// --------------------
+// ADMIN: Update Lucky Draw Range (with claim cleanup)
+// --------------------
 exports.updateLuckyDrawRange = async (req, res) => {
   try {
     const adminId = req.admin?._id || req.user?._id;
@@ -63,14 +66,25 @@ exports.updateLuckyDrawRange = async (req, res) => {
     if (!range)
       return res.status(404).json({ Result: 0, message: "Range not found" });
 
+    // ✅ Update fields
     range.minAmount = minAmount ?? range.minAmount;
     range.maxAmount = maxAmount ?? range.maxAmount;
     range.eligibleUsers = eligibleUsers ?? range.eligibleUsers;
     range.drawTime = drawTime ? new Date(drawTime) : range.drawTime;
-    range.updatedBy = adminId; // ✅ track updater
+    range.updatedBy = adminId;
     range.updatedAt = new Date();
 
     await range.save();
+
+    // 🧹 Optional cleanup: remove claims of users no longer eligible
+    if (eligibleUsers && Array.isArray(eligibleUsers)) {
+      const removedClaims = await LuckyDrawClaim.deleteMany({
+        drawRangeId: range._id,
+        userId: { $nin: eligibleUsers },
+      });
+
+      console.log(`🧹 ${removedClaims.deletedCount} claim(s) removed for ineligible users`);
+    }
 
     res.status(200).json({
       Result: 1,
@@ -84,11 +98,12 @@ exports.updateLuckyDrawRange = async (req, res) => {
 };
 
 // --------------------
-// ADMIN: Delete Lucky Draw Range
+// ADMIN: Delete Lucky Draw Range (with related claim cleanup)
 // --------------------
 exports.deleteLuckyDrawRange = async (req, res) => {
   try {
     const { id } = req.params;
+
     if (!id)
       return res.status(400).json({ Result: 0, message: "Range ID required" });
 
@@ -96,17 +111,22 @@ exports.deleteLuckyDrawRange = async (req, res) => {
     if (!range)
       return res.status(404).json({ Result: 0, message: "Range not found" });
 
+    // 🧹 Delete all claims linked to this draw range
+    const deletedClaims = await LuckyDrawClaim.deleteMany({ drawRangeId: id });
+
+    // 🗑️ Delete the lucky draw range itself
     await LuckyDrawRange.findByIdAndDelete(id);
 
     res.status(200).json({
       Result: 1,
-      message: "Lucky Draw Range deleted successfully",
+      message: `Lucky Draw Range deleted successfully. ${deletedClaims.deletedCount} related claim(s) removed.`,
     });
   } catch (err) {
     console.error("Error deleting LuckyDrawRange:", err);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
 
 // --------------------
 // ADMIN: Get All Lucky Draw Ranges
@@ -230,62 +250,89 @@ exports.getUserLuckyDrawHistory = async (req, res) => {
 exports.getUpcomingLuckyDraw = async (req, res) => {
   try {
     const userId = req.user?._id;
-    const userRole = req.user?.role;
-    console.log("role:", userRole);
+    console.log("🔹 API Called: getUpcomingLuckyDraw");
+    console.log("🧍 User ID:", userId);
 
     if (!userId)
       return res.status(401).json({ Result: 0, message: "Unauthorized user" });
 
-    // 🙋‍♂️ NORMAL USER → show only their own upcoming eligible draw
+    const now = new Date();
+    console.log("🕒 Current Server Time:", now);
+
+    // 1️⃣ Find upcoming lucky draw where user is included
+    const upcomingRange = await LuckyDrawRange.findOne({
+      drawTime: { $gte: now },
+      eligibleUsers: userId,
+    }).sort({ drawTime: 1 });
+
+    console.log("🎯 Upcoming Range Found:", upcomingRange ? true : false);
+    if (upcomingRange) {
+      console.log({
+        drawTime: upcomingRange.drawTime,
+        minAmount: upcomingRange.minAmount,
+        maxAmount: upcomingRange.maxAmount,
+      });
+    }
+
+    // ❌ No draw found that includes user
+    if (!upcomingRange) {
+      console.log("⚠️ No upcoming lucky draw found for user");
+      return res.status(200).json({
+        Result: 0,
+        message: "No upcoming lucky draw found for this user",
+      });
+    }
+
+    // 2️⃣ Find user's last claim
     const lastClaim = await LuckyDrawClaim.findOne({ userId }).sort({
       createdAt: -1,
     });
 
-    // If user has a next eligible time in future
-    if (lastClaim && lastClaim.nextClaimTime) {
-      const now = new Date();
-      if (lastClaim.nextClaimTime > now) {
-        return res.status(200).json({
-          Result: 1,
-          message: "Next eligible claim time fetched successfully",
-          Data: {
-            drawTime: toLocalISOString(lastClaim.nextClaimTime),
-            isEligible: false,
-          },
-        });
-      }
+
+    // ✅ Case 1: User never claimed before → eligible
+    if (!lastClaim) {
+      console.log("✅ No last claim found → User eligible for first draw");
+      return res.status(200).json({
+        Result: 1,
+        message: "User eligible for first lucky draw",
+        Data: {
+          drawTime: toLocalISOString(upcomingRange.drawTime),
+          isEligible: true,
+        },
+      });
     }
 
-    // User is eligible or never claimed before
-    const latestRange = await LuckyDrawRange.findOne().sort({ drawTime: -1 });
+    // ✅ Case 2: User has claimed before → check nextClaimTime
+    if (lastClaim.nextClaimTime) {
+        return res.status(200).json({
+          Result: 1,
+          message: "User eligible for upcoming lucky draw",
+          Data: {
+            drawTime: toLocalISOString(lastClaim.nextClaimTime),
+            isEligible: true,
+          },
+        });
+    }
 
-    if (!latestRange)
-      return res
-        .status(200)
-        .json({ Result: 0, message: "No upcoming draws found" });
-
-    const now = new Date();
-    if (latestRange.drawTime <= now)
-      return res
-        .status(200)
-        .json({ Result: 0, message: "User not eligible for any lucky draw" });
-
-    // ✅ User eligible for next draw
-    res.status(200).json({
+    // 🟢 Fallback → eligible
+    console.log("⚙️ No nextClaimTime field found → Default eligible");
+    return res.status(200).json({
       Result: 1,
-      message: "Upcoming Lucky Draw fetched successfully",
+      message: "User eligible for upcoming lucky draw",
       Data: {
-        drawTime: toLocalISOString(latestRange.drawTime),
-        minAmount: latestRange.minAmount,
-        maxAmount: latestRange.maxAmount,
+        drawTime: toLocalISOString(upcomingRange.drawTime),
         isEligible: true,
       },
     });
   } catch (err) {
-    console.error("Error fetching upcoming LuckyDraw:", err);
+    console.error("❌ Error fetching upcoming LuckyDraw:", err);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
+
+
+
+
 
 
 
