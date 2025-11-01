@@ -316,7 +316,7 @@ exports.getUpcomingLuckyDraw = async (req, res) => {
         Result: 1,
         message: "User eligible for first lucky draw",
         Data: {
-          drawTime: toLocalISOString(upcomingRange.drawTime),
+          drawTime: upcomingRange.drawTime,
           isEligible: true,
         },
       });
