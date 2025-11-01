@@ -18,36 +18,36 @@ function toLocalISOString(dateInput) {
 // --------------------
 exports.setLuckyDrawRange = async (req, res) => {
   try {
-    const adminId = req.admin?._id || req.user?._id; // ✅ from admin middleware
     const { minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
+    const userId = req.user?._id;
 
-    if (!minAmount || !maxAmount || minAmount > maxAmount)
-      return res.status(400).json({ Result: 0, message: "Invalid min or max amount" });
-
-    if (!drawTime)
+    if (!minAmount || !maxAmount || minAmount > maxAmount) {
+      return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+    }
+    if (!drawTime) {
       return res.status(400).json({ Result: 0, message: "Draw time required" });
+    }
 
     const newRange = new LuckyDrawRange({
       minAmount,
       maxAmount,
       eligibleUsers,
-      drawTime: new Date(drawTime),
-      createdBy: adminId, // ✅ track creator
+      drawTime:drawTime,
+      createdBy: userId,
     });
 
     await newRange.save();
 
     res.status(200).json({
       Result: 1,
-      message: "Lucky Draw Range created successfully",
+      message: "Lucky draw range created successfully",
       Data: newRange,
     });
-  } catch (err) {
-    console.error("Error creating LuckyDrawRange:", err);
+  } catch (error) {
+    console.error("Error creating lucky draw range:", error);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
 // --------------------
 // ADMIN: Update Lucky Draw Range
 // --------------------
@@ -56,28 +56,37 @@ exports.setLuckyDrawRange = async (req, res) => {
 // --------------------
 exports.updateLuckyDrawRange = async (req, res) => {
   try {
-    const adminId = req.admin?._id || req.user?._id;
     const { id, minAmount, maxAmount, eligibleUsers, drawTime } = req.body;
+    const userId = req.user?._id;
 
-    if (!id)
-      return res.status(400).json({ Result: 0, message: "Range ID required" });
+    if (!id) {
+      return res.status(400).json({ Result: 0, message: "Range ID is required" });
+    }
 
-    const range = await LuckyDrawRange.findById(id);
-    if (!range)
+    if (!minAmount || !maxAmount || minAmount > maxAmount) {
+      return res.status(400).json({ Result: 0, message: "Invalid min-max range" });
+    }
+
+    if (!drawTime) {
+      return res.status(400).json({ Result: 0, message: "Draw time required" });
+    }
+
+    const luckyDrawRange = await LuckyDrawRange.findById(id);
+    if (!luckyDrawRange) {
       return res.status(404).json({ Result: 0, message: "Range not found" });
+    }
 
-    // ✅ Update fields
-    range.minAmount = minAmount ?? range.minAmount;
-    range.maxAmount = maxAmount ?? range.maxAmount;
-    range.eligibleUsers = eligibleUsers ?? range.eligibleUsers;
-    range.drawTime = drawTime ? new Date(drawTime) : range.drawTime;
-    range.updatedBy = adminId;
-    range.updatedAt = new Date();
-
-    await range.save();
-
-    // 🧹 Optional cleanup: remove claims of users no longer eligible
-    if (eligibleUsers && Array.isArray(eligibleUsers)) {
+    // console.log("Parsed drawTime:",luckyDrawRange.drawTime);
+    // Update fields
+    luckyDrawRange.minAmount = minAmount;
+    luckyDrawRange.maxAmount = maxAmount;
+    luckyDrawRange.eligibleUsers = eligibleUsers;
+    luckyDrawRange.drawTime = drawTime; // ✅ exact local time
+    luckyDrawRange.updatedBy = userId;
+    luckyDrawRange.updatedAt = new Date();
+    // console.log("Parsed drawTime:",luckyDrawRange.drawTime);
+    await luckyDrawRange.save();
+   if (eligibleUsers && Array.isArray(eligibleUsers)) {
       const removedClaims = await LuckyDrawClaim.deleteMany({
         drawRangeId: range._id,
         userId: { $nin: eligibleUsers },
@@ -85,18 +94,30 @@ exports.updateLuckyDrawRange = async (req, res) => {
 
       console.log(`🧹 ${removedClaims.deletedCount} claim(s) removed for ineligible users`);
     }
+    // Format drawTime for response
+    const drawTimeFormatted = luckyDrawRange.drawTime.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
 
     res.status(200).json({
       Result: 1,
-      message: "Lucky Draw Range updated successfully",
-      Data: range,
+      message: "Lucky draw range updated successfully",
+      Data: {
+        ...luckyDrawRange.toObject(),
+        drawTime: drawTimeFormatted,
+      },
     });
-  } catch (err) {
-    console.error("Error updating LuckyDrawRange:", err);
+  } catch (error) {
+    console.error("Error updating lucky draw range:", error);
     res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
-
 // --------------------
 // ADMIN: Delete Lucky Draw Range (with related claim cleanup)
 // --------------------
