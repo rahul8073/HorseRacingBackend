@@ -88,7 +88,6 @@ exports.updateLuckyDrawRange = async (req, res) => {
     await luckyDrawRange.save();
    if (eligibleUsers && Array.isArray(eligibleUsers)) {
       const removedClaims = await LuckyDrawClaim.deleteMany({
-        drawRangeId: range._id,
         userId: { $nin: eligibleUsers },
       });
 
