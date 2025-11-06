@@ -126,7 +126,7 @@ exports.getRaceTimer = async (req, res) => {
       return res.status(400).json({ Result: 0, message: "Timer not initialized" });
 
     // 🏁 If phase is "resultTimer", decide result once per race
-    if (config.phase === "resultTimer" && config.countdown==30) {
+    if (config.phase === "resultTimer" && config.countdown==22) {
       console.log("⚙️ Deciding race result via API call...");
       try {
         const result = await DecideRaceResult(12); // or pass 22 for 22-horse mode
