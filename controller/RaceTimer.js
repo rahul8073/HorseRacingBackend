@@ -1,4 +1,5 @@
 const RaceConfig = require("../Models/RaceConfig");
+const { DecideRaceResult } = require("./HorseBetController");
 
 // Phase durations (in seconds)
 const RACE_START_SECONDS = 30;  // 🏇 Race duration
@@ -100,19 +101,56 @@ function startWaitingPhase() {
 // =============================
 // 🌐 API: Get Race Timer
 // =============================
+// exports.getRaceTimer = async (req, res) => {
+//   try {
+//     const config = await RaceConfig.findOne();
+//     if (!config)
+//       return res.status(400).json({ Result: 0, message: "Timer not initialized" });
+
+//     res.json({
+//       Result: 1,
+//       phase: config.phase,
+//       countdown: config.countdown,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ Result: 0, message: "Internal server error" });
+//   }
+// };
+
+let lastRaceResult = null;
 exports.getRaceTimer = async (req, res) => {
   try {
     const config = await RaceConfig.findOne();
     if (!config)
       return res.status(400).json({ Result: 0, message: "Timer not initialized" });
 
-    res.json({
+    // 🏁 If phase is "resultTimer", decide result once per race
+    if (config.phase === "resultTimer" && config.countdown==30) {
+      console.log("⚙️ Deciding race result via API call...");
+      try {
+        const result = await DecideRaceResult(12); // or pass 22 for 22-horse mode
+        lastRaceResult = result;
+        console.log("✅ Race result decided:", result?.winner?.horseName);
+      } catch (err) {
+        console.error("❌ Error deciding race result:", err);
+      }
+    }
+
+    // 🧭 Reset after waiting phase (start new race)
+    if (config.phase === "raceStart" && lastRaceResult) {
+      lastRaceResult = null;
+    }
+
+    // 🧩 Return result (even during raceStart or waiting)
+    return res.json({
       Result: 1,
       phase: config.phase,
       countdown: config.countdown,
+      raceResult: lastRaceResult || null,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ Result: 0, message: "Internal server error" });
+    console.error("Error fetching race timer:", err);
+    return res.status(500).json({ Result: 0, message: "Internal server error" });
   }
 };
