@@ -1361,7 +1361,8 @@ exports.DecideRaceResult = async (totalHorsesParam) => {
         bet.horseId.horseNumber >= 1 &&
         bet.horseId.horseNumber <= horseLimit
     );
-
+    console.log("Validate bets: ",validBets);
+    
     let winningHorse = null;
     let winningBet = null;
 
@@ -1485,6 +1486,8 @@ exports.DecideRaceResult = async (totalHorsesParam) => {
 
     // Step 7: clear all race bets
     await HorseBet.deleteMany({});
+console.log("🎯 Winner horse:", winningHorse.horseNumber);
+console.log("🏆 Winners:", winningUsers);
 
     return {
       success: true,
