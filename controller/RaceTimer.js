@@ -10,6 +10,7 @@ let currentPhase = "raceStart";
 let countdown = RACE_START_SECONDS;
 let lastRaceResult = null;
 let resultDecided = false;
+let decidingInProgress = false;
 let phaseInterval = null;
 let isTransitioning = false;
 
@@ -28,27 +29,34 @@ function startPhaseLoop() {
   clearInterval(phaseInterval);
   console.log(`▶️ Phase started: ${currentPhase} (${countdown}s)`);
 
-  phaseInterval = setInterval(async () => {
+  phaseInterval = setInterval(() => {
     try {
       if (isTransitioning) return;
 
       countdown--;
 
-      // 🏆 Auto Decide Result (only once)
+      // 🏆 Auto Decide Result (EXACTLY ONCE)
       if (
         currentPhase === "resultTimer" &&
         countdown === 22 &&
-        !resultDecided
+        !resultDecided &&
+        !decidingInProgress
       ) {
+        decidingInProgress = true;   // 🧱 prevent duplicate triggers
+        resultDecided = true;        // 🏁 mark as done immediately
         console.log("⚙️ Automatically deciding race result (countdown=22)...");
-        resultDecided = true;
-        try {
-          const result = await DecideRaceResult(12); // race type or mode
-          lastRaceResult = result;
-          console.log("✅ Race result decided:", result?.winner?.horseName);
-        } catch (err) {
-          console.error("❌ DecideRaceResult error:", err);
-        }
+
+        (async () => {
+          try {
+            const result = await DecideRaceResult(12);
+            lastRaceResult = result;
+            console.log("✅ Race result decided:", result?.winner?.horseName);
+          } catch (err) {
+            console.error("❌ DecideRaceResult error:", err);
+          } finally {
+            decidingInProgress = false;
+          }
+        })();
       }
 
       // --- Phase Switch Logic ---
@@ -60,6 +68,7 @@ function startPhaseLoop() {
           currentPhase = "resultTimer";
           countdown = RESULT_SECONDS;
           resultDecided = false;
+          lastRaceResult = null;
           console.log("🏁 Race ended → Result phase started");
         } else if (currentPhase === "resultTimer") {
           currentPhase = "waiting";
@@ -74,7 +83,7 @@ function startPhaseLoop() {
         }
 
         isTransitioning = false;
-        startPhaseLoop(); // restart new phase cleanly
+        startPhaseLoop();
       }
     } catch (err) {
       console.error("❌ Loop error:", err);
@@ -92,9 +101,7 @@ exports.getRaceTimer = async (req, res) => {
       phase: currentPhase,
       countdown,
       raceResult:
-        currentPhase === "resultTimer"
-          ? lastRaceResult
-          : null,
+        currentPhase === "resultTimer" ? lastRaceResult : null,
     });
   } catch (err) {
     console.error("❌ API error:", err);
